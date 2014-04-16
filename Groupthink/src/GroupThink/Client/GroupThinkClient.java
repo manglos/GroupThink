@@ -1,9 +1,9 @@
 
-package GroupThink;
+package GroupThink.Client;
 
 import GroupThink.GTP.*;
 
-public class Groupthink {
+public class GroupThinkClient {
 
     public static void main(String[] args) {
         Packet p = new URP("manglosc");
