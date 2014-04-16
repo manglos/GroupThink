@@ -45,7 +45,7 @@ public class GroupThinkClient {
             UDPClient.sendPacket(request);
             rb = UDPClient.receivePacket();
             response = new UCP(rb);
-            
+            System.out.println("Username confirmed ID = " + ((UCP)response).getUserID());
         } catch (IOException ex) {
             ex.printStackTrace();
         } catch (WrongPacketTypeException ex) {

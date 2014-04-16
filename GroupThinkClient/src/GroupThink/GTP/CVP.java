@@ -24,7 +24,7 @@ public class CVP extends GTPPacket {
         b[0] = n[0];
         b[1] = n[1];
         
-        //dbuf = ByteBuffer.allocate(2);
+        dbuf = ByteBuffer.allocate(2);
         dbuf.putShort(userID);
         n = dbuf.array();
 

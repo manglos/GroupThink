@@ -24,21 +24,21 @@ public class RPP extends GTPPacket {
         b[0] = n[0];
         b[1] = n[1];
         
-        //dbuf = ByteBuffer.allocate(2);
+        dbuf = ByteBuffer.allocate(2);
         dbuf.putShort(userID);
         n = dbuf.array();
 
         b[2] = n[0];
         b[3] = n[1];
         
-        //ByteBuffer dbuf = ByteBuffer.allocate(2);
+        dbuf = ByteBuffer.allocate(2);
         dbuf.putShort(lineNumber);
         n = dbuf.array();
 
         b[4] = n[0];
         b[5] = n[1];
         
-        //ByteBuffer dbuf = ByteBuffer.allocate(2);
+        dbuf = ByteBuffer.allocate(2);
         dbuf.putShort(spaceNumber);
         n = dbuf.array();
 
