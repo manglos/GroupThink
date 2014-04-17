@@ -1,5 +1,7 @@
 package groupthinkserver;
 
+import java.util.ArrayList;
+
 public class GroupThinkServer {
     static final String ANSI_RED = "\u001B[31m";
     static final String ANSI_WHITE = "\u001B[0m";
@@ -11,8 +13,10 @@ public class GroupThinkServer {
 
     public static boolean debug = false;
     public static final int PORT = 2606;
+    public static ArrayList<String> clients;
     
     public static void main(String[] args){
+        clients = new ArrayList<String>();
         
         MyServer myServer = new MyServer(PORT);
         myServer.listen();

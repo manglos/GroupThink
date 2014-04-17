@@ -15,6 +15,8 @@ public class URP extends GTPPacket {
         usernameBytes = username.getBytes();
         
         byte[] b = new byte[calcBytesLength()];
+        
+        
 
         short num = (short) super.opCode;
 
@@ -44,10 +46,22 @@ public class URP extends GTPPacket {
             throw new WrongPacketTypeException("Not a valid URP Packet");
         }
         
-        byte[] ub = new byte[b.length-3];
-        for(int i=0;i<ub.length;i++){
-            ub[i] = b[i+2];
+        int stopIndex=-1;
+        
+        for(int i = 2;i<b.length && stopIndex<0;i++){
+            if(b[i]==0)
+                stopIndex=i;
         }
+        
+        
+        byte[] ub = new byte[stopIndex-2];
+        
+        for(int i=0;i<ub.length;i++){
+            if(b[i+2]!=0)
+                ub[i] = b[i+2];                
+        }
+        
+        
         
         username = new String(ub);
 

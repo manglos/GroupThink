@@ -57,7 +57,14 @@ public class EP extends GTPPacket {
         ByteBuffer bb = ByteBuffer.wrap(ec);
         code = (int)bb.getShort();
         
-        byte[] mb = new byte[b.length-5];
+        int stopIndex=-1;
+        for(int i=4;i<b.length && stopIndex<0;i++){
+            if(b[i]==0)
+                stopIndex=i;
+        }
+        
+        byte[] mb = new byte[stopIndex-4];
+        
         for(int i=0;i<mb.length;i++){
             mb[i] = b[i+4];
         }
@@ -66,6 +73,10 @@ public class EP extends GTPPacket {
 
         this.bytes=b;
         setBytes();
+    }
+    
+    public int getErrorCode(){
+        return code;
     }
     
     public String getMessage() {

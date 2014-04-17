@@ -45,7 +45,7 @@ public class UDPWorker implements Runnable {
                 socket.setReceiveBufferSize(57344);
                 socket.setSendBufferSize(57344);
                 socket.setSoTimeout(1000);
-                System.out.println("RBS: " + socket.getReceiveBufferSize() + "  SBS: " + socket.getSendBufferSize() + "  Timeout: " + socket.getSoTimeout());
+                //System.out.println("RBS: " + socket.getReceiveBufferSize() + "  SBS: " + socket.getSendBufferSize() + "  Timeout: " + socket.getSoTimeout());
 
                 
                 byte[] rb=null;
@@ -60,10 +60,20 @@ public class UDPWorker implements Runnable {
                         retryConnect = true;
                     }
                 }
-                
+                GTPPacket request;
+                GTPPacket response;
                 try {
-                    GTPPacket request = new URP(rb);
-                    sendPacket(new UCP((short)1));
+                    request = new URP(rb);
+                    String requestedUsername = ((URP)request).getUsername();
+                    System.out.println("Got Request for username : " + requestedUsername);
+                    if(GroupThinkServer.clients.contains(requestedUsername)){
+                       response = new EP(3, requestedUsername + " is unavailable.");
+                    }
+                    else{
+                        GroupThinkServer.clients.add(requestedUsername);
+                        response = new UCP((short)GroupThinkServer.clients.indexOf(requestedUsername));
+                    }
+                    sendPacket(response);
                 } catch (WrongPacketTypeException ex) {
                     System.out.println(ex);
                 }
