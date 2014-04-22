@@ -1,0 +1,97 @@
+GroupThink Protocol (GTP) Specifications Document:
+
+
+ERROR CODES
+    3 - <username> is unavailable
+
+
+PACKET STRUCTURE
+
+Write Character Packet (WCP) & Delete Character Packet (DCP)
+
+    2 bytes       2 bytes  2 bytes    2 bytes         2 bytes        2 bytes         1 byte
+  ---------------------------------------------------------------------------------------------
+ | IntendedUser | Opcode |  UserID |  SeqNumber  |   LineNumber  |  SpaceNumber  |  Character  |          
+  ---------------------------------------------------------------------------------------------
+
+WCPs (OC - 1) & DCPs (OC - 2) are used to write and delete a single character at a specified position. 
+WPCs & DCPs each contain an expected sequence number, which is the relative order that the operation will be performed. 
+The number is only considered accurate upon receipt by the current leader.
+This value is used by the current leader to establish a semi-accurate order of events.
+The UserID is a short value which is the key in a server-side hashmap with String values for usernames. 
+Establishing an ID removes the necessity of sending the username in each packet.
+
+
+Report Position Packet (RPP)                        
+
+    2 bytes      2 bytes   2 bytes     2 bytes         2 bytes
+  ---------------------------------------------------------------
+ | IntendedUser | Opcode |  UserID |  LineNumber  |  SpaceNumber |          
+  ---------------------------------------------------------------
+
+RPPs (OC - 3) are used to report a user’s current cursor position in the document. 
+Perhaps there is a reason to include a TimeStamp and SeqNumber? 
+It seems to me we can be lazy about this, since RPPs are really only used for display purposes. 
+That the WCPs and DCPs are accurate is much more important.
+
+
+Commit Vote Packet (CVP)
+
+    2 bytes     2 bytes   2 bytes  1 byte 
+ ------------------------------------------
+| IntendedUser | Opcode |  UserID |  Vote  |
+ ------------------------------------------
+
+CVPs (OC - 4) are used for clients to cast a vote whether or not to commit the document in the current state. 
+I’m thinking a two-thirds majority is a sweet-spot, to balance some level of consensus and minimize potential frustrations 
+(like bad connections, and malicious users).
+
+
+
+Username Request Packet (URP)
+
+    2 bytes     2 bytes         String       1 byte 
+ -------------------------------------------------
+| IntendedUser | Opcode |  RequestedUsername  | 0 |
+ -------------------------------------------------
+
+URPs (OC - 5) are used when a client starts a session to establish a session-lifetime ID, Username pair.
+
+
+
+Username Confirmation Packet (UCP)
+
+    2 bytes     2 bytes   2 bytes 
+ ----------------------------------
+| IntendedUser | Opcode |  UserID  | 
+ ----------------------------------
+
+UCPs (OC - 6) are sent from the server to confirm a URP with the corresponding ID.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Error Packet (EP)
+
+
+     2 bytes     2 bytes    2 bytes      string    1 byte
+ --------------------------------------------------------
+| IntendedUser | Opcode |  ErrorCode |   ErrMsg   |   0  |
+ --------------------------------------------------------
+
+
+EPs (OC - 7) are stolen straight out of the TFTP specs and work exactly the same (codes are different however).
