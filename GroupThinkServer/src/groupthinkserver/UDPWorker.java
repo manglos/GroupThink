@@ -78,7 +78,7 @@ public class UDPWorker implements Runnable {
                     String requestedUsername = ((URP)request).getUsername();
                     System.out.println("Got Request for username : " + requestedUsername);
                     if(GroupThinkServer.clients.contains(requestedUsername)){
-                       response = new EP(-1, 3, requestedUsername + " is unavailable.");
+                       response = new EP(-1, 3, "'"+requestedUsername + "' is unavailable.");
                     }
                     else{
                         GroupThinkServer.clients.add(requestedUsername);
@@ -130,11 +130,10 @@ public class UDPWorker implements Runnable {
     }
     
     private void sendPacket(GTPPacket p) throws IOException{
-        System.out.println("Sending packet... " + p);
-        printBytes(p.getBytes());
+        System.out.print("Sending packet:  " + p);
+        //printBytes(p.getBytes());
         packet = new DatagramPacket(p.getBytes(), 0, p.getBytes().length, inet, PORT);
         sender.send(packet);
-        System.out.println("...sent.");
     }
     
     //just prints contents of byte array, for debug purposes

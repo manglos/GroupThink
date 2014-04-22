@@ -9,18 +9,12 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.*;
 
 import static javax.swing.JOptionPane.*;
@@ -33,16 +27,15 @@ public class GroupThinkClient extends JFrame {
     //Constants
     private final int GUI_WIDTH = 500;
     private final int GUI_HEIGHT = 300;
+    private static final int PORT = 2606;
+    private static final String HOSTNAME = "224.0.0.0";
 
     //Communication/networking variables
-    static int PORT = 2606;
     static DataOutputStream dos = null;
     static DataInputStream dis = null;
-    static String hostname = "224.0.0.0";
     static DataInputStream is;
     static PrintWriter out;
     static BufferedReader in = null;
-    static ServerSocket echoServer = null;
     static boolean debug = false;
     static int myID;
     static EP currentError;
@@ -53,19 +46,8 @@ public class GroupThinkClient extends JFrame {
 
     public static void main(String[] args) {
         
-        UDPMultiCaster.initialize(PORT, hostname);
+        UDPMultiCaster.initialize(PORT, HOSTNAME);
         currentError = null;
-
-        //commenting out following code to implement similar functionality in GUI
-//        System.out.println("Enter a requested username.");
-//        String input="";
-//        Scanner scan = new Scanner(System.in);
-//        input = scan.nextLine();
-//
-//        while(!input.equals("exit") && !requestUsername(input))
-//            input=scan.nextLine();
-//
-//        System.out.println("Goodbye.");
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -123,26 +105,28 @@ public class GroupThinkClient extends JFrame {
             
             boolean retry=true;
             
+            //retries until reciept of UCP or EP pertaining to the request
             while(retry){
                 rb = UDPMultiCaster.receivePacket();
                 
                 int code = PacketSniffer.packetType(rb);
                 int recipient = PacketSniffer.intendedRecipient(rb);
-                
-                UDPMultiCaster.printBytes(rb);
-                System.out.println("\nR 4 ir: " + recipient);
-                
+               
+                //if packet is for everyone, and is a valid UCP
                 if(recipient==-1 && code==PacketSniffer.OC_UCP){
                     response = new UCP(rb);
                     if(((UCP)response).getUsername().equals(un))
                         retry=false;
                 }
-                else if(code==PacketSniffer.OC_EP && PacketSniffer.errorCode(rb)==3){
-                    response = new EP(rb);
-                    //UDPMultiCaster.printBytes(response.getBytes());
-                    currentError=(EP)response;
-                    System.out.println("Error Code "+ response);
-                    return false;
+                //else if packet is for everone, and is a valid EP with code 3 - <username> is unavailable
+                else if(recipient==-1 && code==PacketSniffer.OC_EP && PacketSniffer.errorCode(rb)==3){
+                    
+                    if(PacketSniffer.getErrorUsername(rb)!=null && PacketSniffer.getErrorUsername(rb).equals(un)){
+                        response = new EP(rb);
+                        currentError=(EP)response;
+                        System.out.println("Error Code "+ response);
+                        return false;
+                    }
                 }
                 
                 System.out.println("retrying");
@@ -162,7 +146,7 @@ public class GroupThinkClient extends JFrame {
         return false;
     }
     
-    //class for examining received packets
+    //class for examining received packets, without throwing exceptions
     static class PacketSniffer{
         public static final int OC_WCP=1;
         public static final int OC_DCP=2;
@@ -172,6 +156,7 @@ public class GroupThinkClient extends JFrame {
         public static final int OC_UCP=6;
         public static final int OC_EP=7;
         
+        //returns int of packet type
         static int packetType(byte[] b){
             byte[] op = new byte[2];
             op[0] = b[0];
@@ -182,6 +167,7 @@ public class GroupThinkClient extends JFrame {
             return (int)bb.getShort();
         }
         
+        //returns int for intended user id, -1 for all, 0 for server
         static int intendedRecipient(byte[] b){
             byte[] ir = new byte[2];
             ir[0] = b[2];
@@ -192,6 +178,7 @@ public class GroupThinkClient extends JFrame {
             return (int)bb.getShort();
         }
         
+        //returns int for error code, -1 if not an error packet
         static int errorCode(byte[] b){
             if(packetType(b)!=OC_EP){
                 return -1;
@@ -206,7 +193,19 @@ public class GroupThinkClient extends JFrame {
             return (int)bb.getShort();
         }
         
+        static String getErrorUsername(byte[] b){
+            if(errorCode(b)==3){
+                String[] ms = new EP(b).getMessage().split("'");
+                
+                return ms[1];
+            }
+            
+            return null;
+        }
+        
     }
+    
+    
     //class to handle most basic UDP communications
     static class UDPMultiCaster {
         
