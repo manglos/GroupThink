@@ -106,4 +106,8 @@ public class URP extends GTPPacket {
     public byte[] getBytes() {
         return super.bytes;
     }
+    
+    public String toString(){
+        return "URP: " + getUsername() + " " + super.toString();
+    }
 }

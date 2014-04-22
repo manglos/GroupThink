@@ -36,5 +36,9 @@ public abstract class GTPPacket {
     public abstract byte[] getBytes();
 
     abstract void setBytes();
+    
+    public String toString(){
+        return "(" + opCode+ "," + intendedRecipient+")";
+    }
 
 }

@@ -124,7 +124,7 @@ public class UCP extends GTPPacket {
     }
     
     public String toString(){
-        return "UCP: ID " + getUserID() + " Username " + getUsername();
+        return "UCP: ID " + getUserID() + " Username " + getUsername() + " " + super.toString();
     }
 
 }
