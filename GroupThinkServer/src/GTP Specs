@@ -70,28 +70,12 @@ UCPs (OC - 6) are sent from the server to confirm a URP with the corresponding I
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 Error Packet (EP)
-
 
      2 bytes     2 bytes    2 bytes      string    1 byte
  --------------------------------------------------------
 | IntendedUser | Opcode |  ErrorCode |   ErrMsg   |   0  |
  --------------------------------------------------------
 
-
 EPs (OC - 7) are stolen straight out of the TFTP specs and work exactly the same (codes are different however).
+Ha, and now fit for multicast.
