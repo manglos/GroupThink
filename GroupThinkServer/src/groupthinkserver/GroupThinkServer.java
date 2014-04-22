@@ -17,6 +17,7 @@ public class GroupThinkServer {
     
     public static void main(String[] args){
         clients = new ArrayList<String>();
+        clients.add("server");
         
         MyServer myServer = new MyServer(PORT);
         myServer.listen();

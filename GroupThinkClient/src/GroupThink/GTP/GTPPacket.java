@@ -5,10 +5,12 @@ import java.nio.ByteBuffer;
 public abstract class GTPPacket {
 
     int opCode;
+    int intendedRecipient;
     byte[] bytes;
 
-    GTPPacket(int o) {
+    GTPPacket(int o, int ir) {
         opCode = o;
+        intendedRecipient=ir;
     }
     
     GTPPacket(byte[] b) {
@@ -18,6 +20,13 @@ public abstract class GTPPacket {
         
         ByteBuffer bb = ByteBuffer.wrap(op);
         opCode = (int)bb.getShort();
+        
+        byte[] irb = new byte[2];
+        irb[0] = b[2];
+        irb[1] = b[3];
+        
+        bb = ByteBuffer.wrap(irb);
+        intendedRecipient = (int)bb.getShort();
     }
 
     public int getOP() {
