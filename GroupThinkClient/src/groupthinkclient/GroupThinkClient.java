@@ -15,9 +15,15 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.text.AbstractDocument;
 
 import static javax.swing.JOptionPane.*;
+
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
@@ -25,6 +31,10 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 @SuppressWarnings("MagicConstant")
 public class GroupThinkClient extends JFrame {
     //Constants
+    private static boolean DEBUG = true;
+    private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
+    private final int DOC_ROWS = 20;
+    private final int DOC_COLS = 80;
     private final int GUI_WIDTH = 500;
     private final int GUI_HEIGHT = 300;
     private static final int PORT = 2606;
@@ -36,19 +46,27 @@ public class GroupThinkClient extends JFrame {
     static DataInputStream is;
     static PrintWriter out;
     static BufferedReader in = null;
-    static boolean debug = false;
     static int myID;
     static EP currentError;
-    static Queue myQueue;
+    static Map<Integer, String> idToUsernameMap;
 
     //GUI-related variables
-    String username;
+    private String username;
+    private JPanel chatRoom;
+    private JPanel cp;
+    private JPanel userlist;
+    private JButton enterMessage;
+    private JTextField messageField;
+    private RTextScrollPane rtsp;
+    private RSyntaxTextArea editor;
+    private JTextArea chatLog;
+    private JSplitPane mainSplitPane;
 
+    private SimpleDateFormat sdf;
 
     public static void main(String[] args) {
-        GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
+        UDPMultiCaster.initialize(PORT, HOSTNAME);
         currentError = null;
-        myQueue = new Queue();
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -61,42 +79,52 @@ public class GroupThinkClient extends JFrame {
     }
 
     public GroupThinkClient(){
-        RTextScrollPane sp;
-        JPanel cp = new JPanel(new BorderLayout());
+        idToUsernameMap = new HashMap<Integer, String>();
 
-        RSyntaxTextArea textArea = new RSyntaxTextArea(20, 60);
-        textArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
-        textArea.setCodeFoldingEnabled(true);
+        cp = new JPanel(new BorderLayout());
+        chatRoom = new JPanel(new BorderLayout());
 
-        sp = new RTextScrollPane(textArea);
-        cp.add(sp);
+        chatLog = new JTextArea();
+        chatLog.setEditable(false);
+        chatRoom.add(chatLog, BorderLayout.CENTER);
 
-        setContentPane(cp);
+        mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+
+        editor = new RSyntaxTextArea(20, 60);
+        editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
+        editor.setCodeFoldingEnabled(true);
+
+        rtsp = new RTextScrollPane(editor);
+
+        mainSplitPane.setDividerLocation(0.5d);
+        mainSplitPane.setTopComponent(rtsp);
+        mainSplitPane.setBottomComponent(chatRoom);
+
+
+
+
+
+//        cp.add(rtsp, BorderLayout.NORTH);
+
+
+        setContentPane(mainSplitPane);
 
         setTitle("GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
-        
         username = showInputDialog(cp, "Please enter your requested username:");
         while(!requestUsername(username)){
             if(currentError!=null)
                 showMessageDialog(cp, currentError.getMessage());
             else
                 showMessageDialog(cp, "Unidentified error requesting " + username);
-            
+
             username = showInputDialog(cp, "Please try another username:");
         }
         
         setTitle("(" + username + ") GroupThink Client");
-        
-        Thread pt = new Thread(new PacketWorker());
-        pt.start();
-        
-        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
-        lt.start();
-        
     }
     
     
@@ -268,7 +296,7 @@ public class GroupThinkClient extends JFrame {
         }
 
         //recieve a byte array, (of an unspecified type of packet)
-        static byte[] receivePacket() throws IOException, SocketTimeoutException{
+        private static byte[] receivePacket() throws IOException, SocketTimeoutException{
 
             DatagramPacket recPack;
 
