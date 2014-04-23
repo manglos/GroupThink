@@ -107,7 +107,14 @@ public class UDPWorker implements Runnable {
                 response = new UCP((short)-1, (short)GroupThinkServer.clients.indexOf(requestedUsername), requestedUsername);
                 //System.out.println(response);
             }
+            
             sendPacket(response);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(UDPWorker.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            sendPacket(new EP(-1, 2, "TESSSST"));
         } catch (IOException ex) {
             ex.printStackTrace();
         }

@@ -39,15 +39,16 @@ public class GroupThinkClient extends JFrame {
     static boolean debug = false;
     static int myID;
     static EP currentError;
+    static Queue myQueue;
 
     //GUI-related variables
     String username;
 
 
     public static void main(String[] args) {
-        
-        UDPMultiCaster.initialize(PORT, HOSTNAME);
+        GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
         currentError = null;
+        myQueue = new Queue();
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -77,6 +78,7 @@ public class GroupThinkClient extends JFrame {
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
+        
         username = showInputDialog(cp, "Please enter your requested username:");
         while(!requestUsername(username)){
             if(currentError!=null)
@@ -88,6 +90,13 @@ public class GroupThinkClient extends JFrame {
         }
         
         setTitle("(" + username + ") GroupThink Client");
+        
+        Thread pt = new Thread(new PacketWorker());
+        pt.start();
+        
+        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
+        lt.start();
+        
     }
     
     
@@ -259,7 +268,7 @@ public class GroupThinkClient extends JFrame {
         }
 
         //recieve a byte array, (of an unspecified type of packet)
-        private static byte[] receivePacket() throws IOException, SocketTimeoutException{
+        static byte[] receivePacket() throws IOException, SocketTimeoutException{
 
             DatagramPacket recPack;
 
