@@ -42,14 +42,17 @@ public class CheckBoxList extends JList{
     protected class CellRenderer implements ListCellRenderer{
         public Component getListCellRendererComponent(JList list, Object value, int index,
                                                       boolean isSelected, boolean cellHasFocus){
+            Color selectedBGColor = new Color(32, 255, 0);
+            Color selectedFGColor = new Color(10, 212, 0);
+
             JCheckBox checkbox = new JCheckBox();
             if(value instanceof JCheckBox) {
                checkbox = (JCheckBox) value;
             } else if(value instanceof String) {
                 checkbox = new JCheckBox((String) value);
             }
-            checkbox.setBackground(isSelected ? getSelectionBackground() : getBackground());
-            checkbox.setForeground(isSelected ? getSelectionForeground() : getForeground());
+            checkbox.setBackground(isSelected ? selectedBGColor : getBackground());
+            checkbox.setForeground(isSelected ? selectedFGColor : getForeground());
             checkbox.setEnabled(isEnabled());
             checkbox.setFont(getFont());
             checkbox.setFocusPainted(false);

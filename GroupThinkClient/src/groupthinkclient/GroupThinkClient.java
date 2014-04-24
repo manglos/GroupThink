@@ -16,11 +16,11 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.UIManager.*;
 
 import static javax.swing.JOptionPane.*;
 
@@ -28,7 +28,6 @@ import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
-@SuppressWarnings("MagicConstant")
 public class GroupThinkClient extends JFrame {
     //Constants
     private static boolean DEBUG = true;
@@ -37,6 +36,7 @@ public class GroupThinkClient extends JFrame {
     private final int DOC_COLS = 80;
     private final int GUI_WIDTH = 500;
     private final int GUI_HEIGHT = 300;
+    private final int REPO_PANEL_MAX_WIDTH = 30;
     private static final int PORT = 2606;
     private static final String HOSTNAME = "224.0.0.0";
 
@@ -56,16 +56,17 @@ public class GroupThinkClient extends JFrame {
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
     private JPanel cp;
-    private JPanel userlist;
     private JPanel inputPanel;
     private JPanel repoPanel;
+    private JPanel outerPanel;
 
     private JButton sendButton;
     private JTextField messageField;
     private JTextArea chatLog;
     private JScrollPane chatLogScroller;
+    private JScrollPane nameScroller;
+    private JScrollPane repoScroller;
     private JSplitPane innerSplitPane;
-    private JSplitPane outerSplitPane;
 
     private RTextScrollPane rtsp;
     private RSyntaxTextArea editor;
@@ -84,6 +85,20 @@ public class GroupThinkClient extends JFrame {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
+
+                //Set the Look and Feel...
+                try {
+                    for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                        if ("Nimbus".equals(info.getName())) {
+                            UIManager.setLookAndFeel(info.getClassName());
+                            break;
+                        }
+                    }
+                } catch (Exception e) {
+                    // If Nimbus is not available, you can set the GUI to another look and feel.
+                    e.printStackTrace();
+                }
+
                 GroupThinkClient client = new GroupThinkClient();
                 client.setVisible(true);
             }
@@ -96,6 +111,7 @@ public class GroupThinkClient extends JFrame {
      */
     public GroupThinkClient(){
         idToUsernameMap = new HashMap<Integer, String>();
+        sdf = new SimpleDateFormat("HH:mm:ss");
 
         if(DEBUG){
             //populate the name list with dummy data
@@ -110,11 +126,9 @@ public class GroupThinkClient extends JFrame {
 
         chatRoom = new JPanel(new BorderLayout());
 //        chatRoom.setBorder(defaultPanelBorder);
-        userlist = new JPanel();
-//        userlist.setBorder(defaultPanelBorder);
 
         chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
-        userlist.add(chatNameList);
+        nameScroller = new JScrollPane(chatNameList);
 
         chatLog = new JTextArea();
         chatLog.setEditable(false);
@@ -137,10 +151,26 @@ public class GroupThinkClient extends JFrame {
         chatRoom.add(inputPanel, BorderLayout.SOUTH);
 
         chatRoomPanel = new JPanel(new BorderLayout());
-        chatRoomPanel.add(userlist, BorderLayout.WEST);
+        chatRoomPanel.add(nameScroller, BorderLayout.WEST);
         chatRoomPanel.add(chatRoom, BorderLayout.CENTER);
 
-        repoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER)); //TODO - populate this with icons representing files in the repo
+        GridLayout repoLayout = new GridLayout(0, 1, 5, 0);
+
+        repoPanel = new JPanel(repoLayout); //TODO - populate this with icons representing files in the repo
+        repoPanel.setMaximumSize(new Dimension(REPO_PANEL_MAX_WIDTH, this.getHeight()));
+        repoScroller = new JScrollPane(repoPanel);
+
+        //try to generate some dummy repo files
+        if(DEBUG){
+            Random rand = new Random();
+            ArrayList<RepoDocument> dummyFiles = new ArrayList<RepoDocument>();
+            for(int i=0;i<5;i++){
+                dummyFiles.add(new RepoDocument("File#"+(i+1), 2345l, System.currentTimeMillis()));
+            }
+            for(RepoDocument d : dummyFiles){
+                repoPanel.add(d.getFileIcon());
+            }
+        }
 
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
@@ -149,14 +179,17 @@ public class GroupThinkClient extends JFrame {
         rtsp = new RTextScrollPane(editor);
 
         innerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
-        outerSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+        outerPanel = new JPanel(new BorderLayout());
+//        outerSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
 
         innerSplitPane.setDividerLocation(0.5d); //TODO - is this doing anything??
         innerSplitPane.setTopComponent(rtsp);
         innerSplitPane.setBottomComponent(chatRoomPanel);
 
-        outerSplitPane.setLeftComponent(innerSplitPane);
-        outerSplitPane.setRightComponent(repoPanel);
+        outerPanel.add(innerSplitPane, BorderLayout.CENTER);
+        outerPanel.add(repoScroller, BorderLayout.EAST);
+//        outerSplitPane.setLeftComponent(innerSplitPane);
+//        outerSplitPane.setRightComponent(repoPanel);
 
 
 
@@ -165,7 +198,7 @@ public class GroupThinkClient extends JFrame {
 //        cp.add(rtsp, BorderLayout.NORTH);
 
 
-        setContentPane(outerSplitPane);
+        setContentPane(outerPanel);
 
         setTitle("GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
