@@ -18,9 +18,9 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
-import javax.swing.text.AbstractDocument;
 
 import static javax.swing.JOptionPane.*;
 
@@ -48,25 +48,38 @@ public class GroupThinkClient extends JFrame {
     static BufferedReader in = null;
     static int myID;
     static EP currentError;
+    static Queue myQueue;
     static Map<Integer, String> idToUsernameMap;
 
     //GUI-related variables
     private String username;
     private JPanel chatRoom;
+    private JPanel chatRoomPanel;
     private JPanel cp;
     private JPanel userlist;
-    private JButton enterMessage;
+    private JPanel inputPanel;
+    private JPanel repoPanel;
+
+    private JButton sendButton;
     private JTextField messageField;
+    private JTextArea chatLog;
+    private JScrollPane chatLogScroller;
+    private JSplitPane innerSplitPane;
+    private JSplitPane outerSplitPane;
+
     private RTextScrollPane rtsp;
     private RSyntaxTextArea editor;
-    private JTextArea chatLog;
-    private JSplitPane mainSplitPane;
+
+    private CheckBoxList chatNameList;
+    private Border defaultPanelBorder;
 
     private SimpleDateFormat sdf;
 
     public static void main(String[] args) {
         UDPMultiCaster.initialize(PORT, HOSTNAME);
+        GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
         currentError = null;
+        myQueue = new Queue();
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -78,17 +91,56 @@ public class GroupThinkClient extends JFrame {
 
     }
 
+    /*
+     * The GroupThinkClient constructor should only be called on the EDT...
+     */
     public GroupThinkClient(){
         idToUsernameMap = new HashMap<Integer, String>();
 
+        if(DEBUG){
+            //populate the name list with dummy data
+            for(int i=0;i<10;i++){
+                idToUsernameMap.put(i, "Name_"+i);
+            }
+        }
+
+        defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
+
         cp = new JPanel(new BorderLayout());
+
         chatRoom = new JPanel(new BorderLayout());
+//        chatRoom.setBorder(defaultPanelBorder);
+        userlist = new JPanel();
+//        userlist.setBorder(defaultPanelBorder);
+
+        chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
+        userlist.add(chatNameList);
 
         chatLog = new JTextArea();
         chatLog.setEditable(false);
-        chatRoom.add(chatLog, BorderLayout.CENTER);
+        chatLogScroller = new JScrollPane(chatLog);
 
-        mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+        sendButton = new JButton();
+        try{
+            Image img = ImageIO.read(getClass().getResource("send.jpg"));
+            sendButton.setIcon(new ImageIcon(img));
+        } catch (IOException ioe){
+            ioe.printStackTrace();
+            sendButton.setText(">");
+        }
+        messageField = new JTextField();
+        inputPanel = new JPanel(new BorderLayout());
+        inputPanel.add(sendButton, BorderLayout.EAST);
+        inputPanel.add(messageField, BorderLayout.CENTER);
+
+        chatRoom.add(chatLogScroller, BorderLayout.CENTER);
+        chatRoom.add(inputPanel, BorderLayout.SOUTH);
+
+        chatRoomPanel = new JPanel(new BorderLayout());
+        chatRoomPanel.add(userlist, BorderLayout.WEST);
+        chatRoomPanel.add(chatRoom, BorderLayout.CENTER);
+
+        repoPanel = new JPanel(new FlowLayout(FlowLayout.CENTER)); //TODO - populate this with icons representing files in the repo
 
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
@@ -96,9 +148,15 @@ public class GroupThinkClient extends JFrame {
 
         rtsp = new RTextScrollPane(editor);
 
-        mainSplitPane.setDividerLocation(0.5d);
-        mainSplitPane.setTopComponent(rtsp);
-        mainSplitPane.setBottomComponent(chatRoom);
+        innerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+        outerSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+
+        innerSplitPane.setDividerLocation(0.5d); //TODO - is this doing anything??
+        innerSplitPane.setTopComponent(rtsp);
+        innerSplitPane.setBottomComponent(chatRoomPanel);
+
+        outerSplitPane.setLeftComponent(innerSplitPane);
+        outerSplitPane.setRightComponent(repoPanel);
 
 
 
@@ -107,7 +165,7 @@ public class GroupThinkClient extends JFrame {
 //        cp.add(rtsp, BorderLayout.NORTH);
 
 
-        setContentPane(mainSplitPane);
+        setContentPane(outerSplitPane);
 
         setTitle("GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
@@ -115,16 +173,22 @@ public class GroupThinkClient extends JFrame {
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
         username = showInputDialog(cp, "Please enter your requested username:");
-        while(!requestUsername(username)){
-            if(currentError!=null)
-                showMessageDialog(cp, currentError.getMessage());
-            else
-                showMessageDialog(cp, "Unidentified error requesting " + username);
-
-            username = showInputDialog(cp, "Please try another username:");
-        }
+//        while(!requestUsername(username)){
+//            if(currentError!=null)
+//                showMessageDialog(cp, currentError.getMessage());
+//            else
+//                showMessageDialog(cp, "Unidentified error requesting " + username);
+//
+//            username = showInputDialog(cp, "Please try another username:");
+//        }
         
         setTitle("(" + username + ") GroupThink Client");
+
+        Thread pt = new Thread(new PacketWorker());
+        pt.start();
+
+        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
+        lt.start();
     }
     
     
@@ -155,7 +219,7 @@ public class GroupThinkClient extends JFrame {
                     if(((UCP)response).getUsername().equals(un))
                         retry=false;
                 }
-                //else if packet is for everone, and is a valid EP with code 3 - <username> is unavailable
+                //else if packet is for everyone, and is a valid EP with code 3 - <username> is unavailable
                 else if(recipient==-1 && code==PacketSniffer.OC_EP && PacketSniffer.errorCode(rb)==3){
                     
                     if(PacketSniffer.getErrorUsername(rb)!=null && PacketSniffer.getErrorUsername(rb).equals(un)){
@@ -296,7 +360,7 @@ public class GroupThinkClient extends JFrame {
         }
 
         //recieve a byte array, (of an unspecified type of packet)
-        private static byte[] receivePacket() throws IOException, SocketTimeoutException{
+        static byte[] receivePacket() throws IOException, SocketTimeoutException{
 
             DatagramPacket recPack;
 
