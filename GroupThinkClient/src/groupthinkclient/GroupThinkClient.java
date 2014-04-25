@@ -255,7 +255,8 @@ public class GroupThinkClient extends JFrame {
         }
         
         setTitle("(" + username + ") GroupThink Client");
-
+        idToUsernameMap.put(myID, username);
+        
         Thread pt = new Thread(new PacketWorker());
         pt.start();
 
@@ -265,7 +266,7 @@ public class GroupThinkClient extends JFrame {
         if(DEBUG){
             //test sending chat message...
             int[] i = {-1};
-            sendChatMessage("HELLO MY NAME IS " + username, i);
+            sendChatMessage("Hello, My Name Is " + username, i);
         }
     }
 

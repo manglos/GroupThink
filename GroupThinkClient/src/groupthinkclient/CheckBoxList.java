@@ -16,9 +16,11 @@ import java.util.Vector;
 public class CheckBoxList extends JList{
     protected static Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
     protected static Vector<JCheckBox> checkboxes;
+    protected static DefaultListModel dflm;
 
     public CheckBoxList(Object[] items){
-        setModel(new DefaultListModel());
+        dflm = new DefaultListModel();
+        setModel(dflm);
         checkboxes = new Vector<JCheckBox>();
         for(Object o : items){
             checkboxes.add(new JCheckBox(o.toString()));
@@ -66,7 +68,7 @@ public class CheckBoxList extends JList{
     }
 
     public void addName(String name){
-        ((DefaultListModel)getModel()).addElement(new JCheckBox(name));
+        dflm.addElement(new JCheckBox(name));
     }
 
     protected class CellRenderer implements ListCellRenderer{
