@@ -10,18 +10,20 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayList;
 import java.util.Vector;
 
 public class CheckBoxList extends JList{
     protected static Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
-    protected static Vector checkboxes;
+    protected static Vector<JCheckBox> checkboxes;
 
     public CheckBoxList(Object[] items){
-        checkboxes = new Vector();
+        setModel(new DefaultListModel());
+        checkboxes = new Vector<JCheckBox>();
         for(Object o : items){
             checkboxes.add(new JCheckBox(o.toString()));
         }
-        setListData(checkboxes);
+        setListData(checkboxes.toArray());
 
 
         setCellRenderer(new CellRenderer());
@@ -37,6 +39,34 @@ public class CheckBoxList extends JList{
          });
 
         setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    }
+
+    public boolean allChecked(){
+        boolean allChecked = true;
+
+        for(JCheckBox b : checkboxes){
+            if(!b.isSelected()){
+                allChecked = false;
+                break;
+            }
+        }
+        return allChecked;
+    }
+
+    public ArrayList<String> getCheckedItemNames(){
+        ArrayList<String> checked = new ArrayList<String>();
+
+        for(JCheckBox b : checkboxes){
+            if(b.isSelected()){
+                checked.add(b.getText());
+            }
+        }
+
+        return checked;
+    }
+
+    public void addName(String name){
+        ((DefaultListModel)getModel()).addElement(new JCheckBox(name));
     }
 
     protected class CellRenderer implements ListCellRenderer{

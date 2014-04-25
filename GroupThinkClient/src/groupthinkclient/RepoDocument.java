@@ -66,7 +66,7 @@ public class RepoDocument {
 
     public JLabel getFileIcon(){
         JLabel label;
-        Border b = BorderFactory.createLineBorder(Color.black);
+//        Border b = BorderFactory.createLineBorder(Color.black);
 //        try{
 //            ImageIcon img = new ImageIcon("doc2.png");
 //            icon = new JLabel(getMetaDataHTML(), img, SwingConstants.CENTER);
