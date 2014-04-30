@@ -6,7 +6,7 @@ import java.net.SocketTimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ListenerWorker implements Runnable{
+public class ListenerWorker implements Runnable {
 
     int myPort;
     String myHost;

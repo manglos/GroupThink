@@ -53,7 +53,8 @@ public class GroupThinkClient extends JFrame {
     static EP currentError;
     static Queue myQueue;
     static DataList myDataList;
-    static Map<Integer, String> idToUsernameMap;
+    static Map<Integer, String> idToUsernameMap; // keep track of the current group
+    private int leaderID; // keep track of the current leader
 
     // GUI-related variables
     private String username;
@@ -116,20 +117,12 @@ public class GroupThinkClient extends JFrame {
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
-        idToUsernameMap = new HashMap<Integer, String>();
+        idToUsernameMap = new HashMap();
         sdf = new SimpleDateFormat("HH:mm:ss");
-
-//        if(DEBUG){
-//            //populate the name list with dummy data
-//            for(int i=0;i<10;i++){
-//                idToUsernameMap.put(i, "Name"+i);
-//            }
-//        }
 
         defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
 
         chatRoom = new JPanel(new BorderLayout());
-//        chatRoom.setBorder(defaultPanelBorder);
 
         chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
         nameScroller = new JScrollPane(chatNameList);
@@ -297,7 +290,6 @@ public class GroupThinkClient extends JFrame {
     public static void addUser(String name, int id){
         idToUsernameMap.put(id, name);
         chatNameList.addName(name);
-
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
