@@ -18,13 +18,15 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.border.Border;
-import javax.swing.UIManager.*;
 
 import static javax.swing.JOptionPane.*;
 
+import javax.swing.UIManager.*;
+import javax.swing.UIManager.LookAndFeelInfo;
+import javax.swing.border.Border;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
@@ -53,14 +55,13 @@ public class GroupThinkClient extends JFrame {
     static DataList myDataList;
     static Map<Integer, String> idToUsernameMap;
 
-    //GUI-related variables
+    // GUI-related variables
     private String username;
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
     private JPanel inputPanel;
     private JPanel repoPanel;
     private JPanel outerPanel;
-
     private JButton sendButton;
     private JTextField messageField;
     private static JTextArea chatLog;
@@ -68,14 +69,18 @@ public class GroupThinkClient extends JFrame {
     private JScrollPane nameScroller;
     private JScrollPane repoScroller;
     private JSplitPane innerSplitPane;
-
     private RTextScrollPane rtsp;
     static RSyntaxTextArea editor;
-
     private static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
-
     private static SimpleDateFormat sdf;
+    
+    // Change / Synchronization Attributes:
+    private static String document = "";
+    private ArrayList<GlobalChange> gChanges;
+    private ArrayList<LocalChange> lChange;
+    private AtomicBoolean leader;
+    private int highestSequentiaGChange;
 
     public static void main(String[] args) {
         UDPMultiCaster.initialize(PORT, HOSTNAME);
