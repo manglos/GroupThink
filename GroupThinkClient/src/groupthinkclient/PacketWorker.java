@@ -3,31 +3,51 @@ package groupthinkclient;
 import GroupThink.GTP.*;
 import java.io.IOException;
 
-public class PacketWorker implements Runnable{
+public class PacketWorker implements Runnable {
 
     public PacketWorker(){}
 
     @Override
     public void run() {
-
+        // Basically a switch for incoming packets to go to the proper subsystem
         System.out.println("Ready for action...");
         for(;;){
             GTPPacket packet = (GTPPacket)GroupThinkClient.packetQueue.pull();
-
+            // While there are still packets, send to the correct place:
             if(packet!=null){
                 System.out.println(packet);
                 switch(packet.getOP()){
-                    case 6:
-                        handleUCP((UCP)packet); //username confirm - need to add the user/id to the map
+                    case 1: // handle WCP (write)
+                        handleWCP((WCP) packet);
                         break;
-                    case 8:
-                        handleCMP((CMP)packet);
+                    case 2: // handle DCP (delete)
+                        handleDCP((DCP) packet);
                         break;
-                    case 9:
-                        handleData((Data)packet);
+                    case 3: // handle RPP (report position)
+                        handleRPP((RPP) packet);
+                        break;
+                    case 4: // handle CVP (commit vote)
+                        handleCVP((CVP) packet);
+                        break;
+                    case 5: // handle URP (username request packet)
+                        handleURP((URP) packet);
+                        break;
+                    case 6: // handle UCP (username confirm)
+                        handleUCP((UCP) packet); // need to add the user/id
+                        break;
+                    case 7: // handle EP  (error)
+                        handleEP((EP) packet);
+                        break;
+                    case 8: // handle CMP (chat message packet)
+                        handleCMP((CMP) packet);
+                        break;
+                    case 9: // handle DATA (transmit entire document)
+                        handleData((Data) packet);
                         break;
                 }
-            } else {
+            } 
+            // If no packets in queue, block until something is added:
+            else {
                 try {
                     // wait until someone adding to the queue notifies all:
                     synchronized (GroupThinkClient.packetQueue) {
@@ -40,11 +60,36 @@ public class PacketWorker implements Runnable{
         }
     }
 
-    // Handler for 
+    private void handleWCP(WCP wcp) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private void handleDCP(DCP dcp) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private void handleRPP(RPP rpp) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private void handleCVP(CVP cvp) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    private void handleURP(URP urp) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
+    // Handler for username confirmation:
     private void handleUCP(UCP p){
         GroupThinkClient.addUser(p.getUsername(), p.getUserID());
     }
 
+    private void handleEP(EP ep) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
+    // Handler for chat message packets:
     private void handleCMP(CMP p){
         //display if -1 or = to myID
 
@@ -56,7 +101,8 @@ public class PacketWorker implements Runnable{
 
         System.out.println(p);
     }
-
+    
+    // Handler for receiving the entire document:
     private void handleData(Data d){
         if(((GTPPacket)d).getIntendedRecipient()!=GroupThinkClient.myID)
             return;
@@ -72,5 +118,4 @@ public class PacketWorker implements Runnable{
             ex.printStackTrace();
         }
     }
-
 }
