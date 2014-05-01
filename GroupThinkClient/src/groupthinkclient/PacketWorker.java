@@ -12,31 +12,35 @@ public class PacketWorker implements Runnable{
 
         System.out.println("Ready for action...");
         for(;;){
-            GTPPacket p = (GTPPacket)GroupThinkClient.myQueue.pull();
+            GTPPacket packet = (GTPPacket)GroupThinkClient.packetQueue.pull();
 
-            if(p!=null){
-                System.out.println(p);
-                switch(p.getOP()){
+            if(packet!=null){
+                System.out.println(packet);
+                switch(packet.getOP()){
                     case 6:
-                        handleUCP((UCP)p); //username confirm - need to add the user/id to the map
+                        handleUCP((UCP)packet); //username confirm - need to add the user/id to the map
                         break;
                     case 8:
-                        handleCMP((CMP)p);
+                        handleCMP((CMP)packet);
                         break;
                     case 9:
-                        handleData((Data)p);
+                        handleData((Data)packet);
                         break;
                 }
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException ex) {
-                ex.printStackTrace();
+            } else {
+                try {
+                    // wait until someone adding to the queue notifies all:
+                    synchronized (GroupThinkClient.packetQueue) {
+                        GroupThinkClient.packetQueue.wait();
+                    }
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
             }
         }
-
     }
 
+    // Handler for 
     private void handleUCP(UCP p){
         GroupThinkClient.addUser(p.getUsername(), p.getUserID());
     }
@@ -57,9 +61,10 @@ public class PacketWorker implements Runnable{
         if(((GTPPacket)d).getIntendedRecipient()!=GroupThinkClient.myID)
             return;
 
-        GroupThinkClient.myDataList.addData(d);
+        // note: use change list instead
+        //GroupThinkClient.myDataList.addData(d);
 
-        GroupThinkClient.editor.append(GroupThinkClient.myDataList.getFile());
+        //GroupThinkClient.editor.append(GroupThinkClient.myDataList.getFile());
 
         try {
             GroupThinkClient.UDPMultiCaster.sendPacket(new ACK(0, (short)GroupThinkClient.myID, d.getBlockNum()+1));

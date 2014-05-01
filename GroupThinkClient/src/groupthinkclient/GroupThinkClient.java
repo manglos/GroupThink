@@ -32,31 +32,31 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 public class GroupThinkClient extends JFrame {
-    //Constants
-    private static boolean DEBUG = true;
-    private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
-    private final int DOC_ROWS = 20;
-    private final int DOC_COLS = 80;
-    private final int GUI_WIDTH = 500;
-    private final int GUI_HEIGHT = 300;
-    private final int REPO_PANEL_MAX_WIDTH = 30;
+    
+    // Networking Constants
     private static final int PORT = 2606;
     private static final String HOSTNAME = "224.0.0.0";
 
-    //Communication/networking variables
-    static DataOutputStream dos = null;
-    static DataInputStream dis = null;
-    static DataInputStream is;
-    static PrintWriter out;
+    // Networking Variables
+    static DataOutputStream dos = null; // For writing to the socket
+    static DataInputStream dis = null;  // For reading from the socket
+    //static DataInputStream is;
+    static PrintWriter out;             // For persisting the file [commit]
     static BufferedReader in = null;
     static int myID;
     static EP currentError;
-    static Queue myQueue;
-    static DataList myDataList;
+    static final Queue packetQueue = new Queue(); // queue of packets received
+    //static DataList myDataList;
     static Map<Integer, String> idToUsernameMap; // keep track of the current group
     private int leaderID; // keep track of the current leader
 
-    // GUI-related variables
+    // Gui Constants
+    private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
+    private final int GUI_WIDTH = 500;
+    private final int GUI_HEIGHT = 300;
+    private final int REPO_PANEL_MAX_WIDTH = 30;
+    
+    // GUI Variables
     private String username;
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
@@ -78,22 +78,22 @@ public class GroupThinkClient extends JFrame {
     
     // Change / Synchronization Attributes:
     private static String document = "";
-    private ArrayList<GlobalChange> gChanges;
-    private ArrayList<LocalChange> lChange;
+    private HashMap<Long, GlobalChange> gChanges;
+    private HashMap<Long, LocalChange> lChange;
     private AtomicBoolean leader;
-    private int highestSequentiaGChange;
+    private long highestSequentiaGChange;
 
     public static void main(String[] args) {
+        // Multicaster to send packets:
         UDPMultiCaster.initialize(PORT, HOSTNAME);
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
-        currentError = null;
-        myQueue = new Queue();
-
+        
+        // Start GUI:
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
 
-                //Set the Look and Feel...
+                // Set the Look and Feel:
                 try {
                     for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                         if ("Nimbus".equals(info.getName())) {
@@ -101,74 +101,43 @@ public class GroupThinkClient extends JFrame {
                             break;
                         }
                     }
-                } catch (Exception e) {
+                } catch (ClassNotFoundException | 
+                         IllegalAccessException | 
+                         InstantiationException | 
+                         UnsupportedLookAndFeelException e
+                        ) {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
                     e.printStackTrace();
                 }
 
+                // Create the GUI:
                 GroupThinkClient client = new GroupThinkClient();
+                
+                // Display the GUI:
                 client.setVisible(true);
             }
         });
-
     }
 
     /*
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
+        
+        // Load Networking Tools:
         idToUsernameMap = new HashMap();
+        
+        // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
-
         defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
-
         chatRoom = new JPanel(new BorderLayout());
-
         chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
         nameScroller = new JScrollPane(chatNameList);
-
         chatLog = new JTextArea();
         chatLog.setEditable(false);
         chatLogScroller = new JScrollPane(chatLog);
-
         sendButton = new JButton();
-        sendButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                ArrayList<Integer> sendTo = new ArrayList<Integer>();
-                if(!chatNameList.allChecked()) {
-                    for (Object o : chatNameList.getSelectedValuesList()) {
-                        String name = ((JCheckBox) o).getText();
-                        int id = -13;
-                        for (Map.Entry<Integer, String> entry : idToUsernameMap.entrySet()) {
-                            if (entry.getValue().equalsIgnoreCase(name)) {
-                                id = entry.getKey();
-                                break;
-                            }
-                        }
-                        sendTo.add(id);
-                    }
-                } else{
-                    sendTo.add(-1);
-                }
-
-                if(DEBUG){
-                    System.out.println("all checked? " + chatNameList.allChecked());
-                    System.out.println(sendTo);
-                }
-
-                if(!sendTo.isEmpty()){
-                    int[] ids = new int[sendTo.size()];
-                    for(int i=0;i<sendTo.size();i++){
-                        ids[i] = sendTo.get(i);
-                    }
-                    sendChatMessage(messageField.getText(), ids);
-                } else{
-                    showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
-                }
-
-            }
-        });
+        sendButton.addActionListener(new SendAction());
         try{
             Image img = ImageIO.read(getClass().getResource("send.jpg"));
             sendButton.setIcon(new ImageIcon(img));
@@ -205,18 +174,6 @@ public class GroupThinkClient extends JFrame {
         repoPanel = new JPanel(repoLayout); //TODO - populate this with icons representing files in the repo
         repoPanel.setMaximumSize(new Dimension(REPO_PANEL_MAX_WIDTH, this.getHeight()));
         repoScroller = new JScrollPane(repoPanel);
-
-        //try to generate some dummy repo files
-        if(DEBUG){
-            Random rand = new Random();
-            ArrayList<RepoDocument> dummyFiles = new ArrayList<RepoDocument>();
-            for(int i=0;i<5;i++){
-                dummyFiles.add(new RepoDocument("File#"+(i+1), 2345l, System.currentTimeMillis()));
-            }
-            for(RepoDocument d : dummyFiles){
-                repoPanel.add(d.getFileIcon());
-            }
-        }
 
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
@@ -260,12 +217,6 @@ public class GroupThinkClient extends JFrame {
 
         Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
         lt.start();
-
-        if(DEBUG){
-            //test sending chat message...
-            int[] i = {-1};
-            sendChatMessage("Hello, My Name Is " + username, i);
-        }
     }
 
     private void sendChatMessage(String message, int[] recipients){
@@ -323,7 +274,7 @@ public class GroupThinkClient extends JFrame {
                     
                     if(PacketSniffer.getErrorUsername(rb)!=null && PacketSniffer.getErrorUsername(rb).equals(un)){
                         response = new EP(rb);
-                        currentError=(EP)response;
+                        //currentError=(EP)response;
                         System.out.println("Error Code "+ response);
                         return false;
                     }
@@ -340,11 +291,14 @@ public class GroupThinkClient extends JFrame {
             //System.out.println(ex);
             response = new EP(rb);
             UDPMultiCaster.printBytes(response.getBytes());
-            currentError=(EP)response;
             System.out.println("Error Code "+ response);
         }
         return false;
     }
+    
+    //========================================================================//
+    //                            PACKET SNIFFER                              //
+    //========================================================================//
     
     //class for examining received packets, without throwing exceptions
     static class PacketSniffer{
@@ -405,6 +359,9 @@ public class GroupThinkClient extends JFrame {
         
     }
     
+    //========================================================================//
+    //                             MULTICASTER                                //
+    //========================================================================//
     
     //class to handle most basic UDP communications
     static class UDPMultiCaster {
@@ -423,14 +380,14 @@ public class GroupThinkClient extends JFrame {
                 receiver = new MulticastSocket(myPort);
                 receiver.setReceiveBufferSize(57344);
                 receiver.setSendBufferSize(57344);
-                receiver.setSoTimeout(1000);
+                //receiver.setSoTimeout(1000); // Why?
                 inet = InetAddress.getByName(myHost);
                 receiver.joinGroup(inet);
                 
                 sender = new MulticastSocket();
                 sender.setReceiveBufferSize(57344);
                 sender.setSendBufferSize(57344);
-                sender.setSoTimeout(1000);
+                //sender.setSoTimeout(1000); // Why?
                 
             } catch (SocketException ex) {
                 ex.printStackTrace();
@@ -448,30 +405,59 @@ public class GroupThinkClient extends JFrame {
                 System.out.print(b[i] + "  ");
         }
 
-        //send a GTPPacket
+        // send a GTPPacket
         static void sendPacket(GTPPacket p) throws IOException, SocketTimeoutException{
-
             byte[] b = p.getBytes();
-
             DatagramPacket packet = new DatagramPacket(b, 0, b.length, inet, myPort);
             sender.send(packet);
-
         }
 
-        //recieve a byte array, (of an unspecified type of packet)
+        // recieve a byte array, (of an unspecified type of packet)
         static byte[] receivePacket() throws IOException, SocketTimeoutException{
-
             DatagramPacket recPack;
-
             byte[] recv = new byte[516];
-
             recPack = new DatagramPacket(recv, recv.length);
-            receiver.receive(recPack);
-
+            receiver.receive(recPack);  // blocks
             return recv;
+        }
+    }
+
+    //========================================================================//
+    //                             SEND ACTION                                //
+    //========================================================================//
+    
+    private static class SendAction implements ActionListener {
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            ArrayList<Integer> sendTo = new ArrayList<Integer>();
+            if (!chatNameList.allChecked()) {
+                for (Object o : chatNameList.getSelectedValuesList()) {
+                    String name = ((JCheckBox) o).getText();
+                    int id = -13;
+                    for (Map.Entry<Integer, String> entry : idToUsernameMap.entrySet()) {
+                        if (entry.getValue().equalsIgnoreCase(name)) {
+                            id = entry.getKey();
+                            break;
+                        }
+                    }
+                    sendTo.add(id);
+                }
+            } else {
+                sendTo.add(-1);
+            }
+
+            if (!sendTo.isEmpty()) {
+                int[] ids = new int[sendTo.size()];
+                for (int i = 0; i < sendTo.size(); i++) {
+                    ids[i] = sendTo.get(i);
+                }
+                //sendChatMessage(messageField.getText(), ids);
+            } else {
+                //showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
+            }
 
         }
     }
-    
     
 }
