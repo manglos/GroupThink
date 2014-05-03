@@ -1,0 +1,143 @@
+GroupThink Protocol (GTP) Specifications Document:
+
+
+ERROR CODES
+    3 - <username> is unavailable
+    
+
+PACKET STRUCTURE
+
+Write Character Packet (WCP) & Delete Character Packet (DCP)
+
+    2 bytes      2 bytes      2 bytes    2 bytes         2 bytes        2 bytes         1 byte
+  -----------------------------------------------------------------------------------------------
+ |  Opcode  |  IntendedUser  |UserID |  SeqNumber  |   LineNumber  |  SpaceNumber  |  Character  |          
+  -----------------------------------------------------------------------------------------------
+
+WCPs (OC - 1) & DCPs (OC - 2) are used to write and delete a single character at a specified position. 
+WPCs & DCPs each contain an expected sequence number, which is the relative order that the operation will be performed. 
+The number is only considered accurate upon receipt by the current leader.
+This value is used by the current leader to establish a semi-accurate order of events.
+The UserID is a short value which is the key in a server-side hashmap with String values for usernames. 
+Establishing an ID removes the necessity of sending the username in each packet.
+
+
+Report Position Packet (RPP)                        
+
+    2 bytes      2 bytes      2 bytes     2 bytes         2 bytes
+  ------------------------------------------------------------------
+ |  Opcode  |  IntendedUser |  UserID |  LineNumber  |  SpaceNumber |          
+  ------------------------------------------------------------------
+
+RPPs (OC - 3) are used to report a user’s current cursor position in the document. 
+Perhaps there is a reason to include a TimeStamp and SeqNumber? 
+It seems to me we can be lazy about this, since RPPs are really only used for display purposes. 
+That the WCPs and DCPs are accurate is much more important.
+
+
+Commit Vote Packet (CVP)
+
+    2 bytes      2 bytes      2 bytes  1 byte 
+  ---------------------------------------------
+ |  Opcode  |  IntendedUser |  UserID |  Vote  |
+  ---------------------------------------------
+
+CVPs (OC - 4) are used for clients to cast a vote whether or not to commit the document in the current state. 
+I’m thinking a two-thirds majority is a sweet-spot, to balance some level of consensus and minimize potential frustrations 
+(like bad connections, and malicious users).
+
+
+
+Username Request Packet (URP)
+
+    2 bytes     2 bytes             String       1 byte 
+  ----------------------------------------------------
+ |  Opcode  |  IntendedUser |  RequestedUsername  | 0 |
+  ----------------------------------------------------
+
+URPs (OC - 5) are used when a client starts a session to establish a session-lifetime ID, Username pair.
+
+
+
+Username Confirmation Packet (UCP)
+
+    2 bytes      2 bytes       2 bytes 
+  -------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  | 
+  -------------------------------------
+
+UCPs (OC - 6) are sent from the server to confirm a URP with the corresponding ID.
+
+
+
+Error Packet (EP)
+
+    2 bytes      2 bytes      2 bytes       string    1 byte
+  ----------------------------------------------------------
+ |  Opcode  |  IntendedUser | ErrorCode |   ErrMsg   |   0  |
+  ----------------------------------------------------------
+
+EPs (OC - 7) are stolen straight out of the TFTP specs and work exactly the same (codes are different however).
+Ha, and now fit for multicast, so very different from TFTP I suppose...
+
+
+Chat Message Packet (CMP)
+
+    2 bytes     2 bytes        2 bytes    String   1 byte 
+  ------------------------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  |  Message |  0  |
+  ------------------------------------------------------
+
+CMPs (OC - 8) are pretty self-explanatory. 
+
+
+Data Packet (DATA)
+
+    2 bytes     2 bytes         2 bytes   n bytes (n is less than or equal to 512)
+  ------------------------------------------------
+ |  Opcode  |  IntendedUser |  BlockNum  |  Data  |
+  ------------------------------------------------
+
+DATAs (OC - 9) are used to transmit an entire document, in 512 byte blocks.
+
+
+Acknowledgement Packet (ACK)
+
+    2 bytes     2 bytes        2 bytes     2 bytes 
+  --------------------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  |  BlockNum  |
+  --------------------------------------------------
+
+ACKs (OC - 10) are used to acknowledge the receipt of DATAs.
+
+
+Token Request Packet (TRP)
+
+    2 bytes     2 bytes        2 bytes
+  -------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  |
+  -------------------------------------
+
+TRPs (OC - 11) are used by clients to request the leader's token. IntendedUser is always -1.
+
+
+Token Confirm Packet (TCP)
+
+    2 bytes     2 bytes        2 bytes         2n bytes      1 byte
+  ------------------------------------------------------------------
+ |  Opcode  |  IntendedUser |  LogCount  |  RequestQueueIDs  |  -1  |
+  ------------------------------------------------------------------
+
+TCPs (OC - 12) are used to send the actual contents of the token to the requesting client.
+LogCount is the most accurate current length of the Global Log.
+RequestQueueIDs is a list of n users in queue for the token.
+
+
+Heartbeat Packet (HP)
+
+    2 bytes     2 bytes        2 bytes
+  -------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  |
+  -------------------------------------
+
+HPs (OC - 13) are used to confirm that a client is still active. IntendedUser is always -1.

@@ -19,6 +19,8 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -87,6 +89,7 @@ public class GroupThinkClient extends JFrame {
         // Multicaster to send packets:
         UDPMultiCaster.initialize(PORT, HOSTNAME);
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
+        
         
         // Start GUI:
         SwingUtilities.invokeLater(new Runnable() {
