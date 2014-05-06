@@ -12,6 +12,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 public class CheckBoxList extends JList{
@@ -110,7 +111,6 @@ public class CheckBoxList extends JList{
 
     public void addName(String name){
 //        dflm.addElement(new JCheckBox(name));
-        nameToFontColorMap.put(name, UCG.getNextUserColor());
 
         //check if the name already exists in the list...
         boolean userExists = false;
@@ -126,6 +126,7 @@ public class CheckBoxList extends JList{
         if(!userExists){
             items.add(new JCheckBox(name));
             setListData(items);
+            nameToFontColorMap.put(name, UCG.getNextUserColor());
         }
     }
 
