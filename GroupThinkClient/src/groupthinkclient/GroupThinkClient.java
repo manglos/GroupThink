@@ -20,6 +20,8 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -44,12 +46,13 @@ public class GroupThinkClient extends JFrame {
     //static DataInputStream is;
     static PrintWriter out;             // For persisting the file [commit]
     static BufferedReader in = null;
-    static int myID;
+    static AtomicInteger myID;
     static EP currentError;
     static final Queue packetQueue = new Queue(); // queue of packets received
     //static DataList myDataList;
     static ConcurrentHashMap<Integer, User> idToUser; // keep track of the current group
     private int leaderID; // keep track of the current leader
+    public AtomicInteger nextUserID;
 
     // Gui Constants
     private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
@@ -58,16 +61,16 @@ public class GroupThinkClient extends JFrame {
     private final int REPO_PANEL_MAX_WIDTH = 30;
     
     // GUI Variables
-    private String username;
+    public static AtomicReference<String> username;
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
     private JPanel inputPanel;
     private JPanel repoPanel;
     private JPanel outerPanel;
     private JButton sendButton;
-    private JTextField messageField;
-    private static JTextArea chatLog;
-    private JScrollPane chatLogScroller;
+    private static JTextField messageField;
+    private static JPanel chatLog;
+    private static JScrollPane chatLogScroller;
     private JScrollPane nameScroller;
     private JScrollPane repoScroller;
     private JSplitPane innerSplitPane;
@@ -83,7 +86,10 @@ public class GroupThinkClient extends JFrame {
     private HashMap<Long, LocalChange> lChange;
     public static AtomicBoolean leader;
     private long highestSequentiaGChange;
-    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //
+    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
+    
+    private static ArrayList<JLabel> messages;
+    
 
     public static void main(String[] args) {
         // Multicaster to send packets:
@@ -127,22 +133,124 @@ public class GroupThinkClient extends JFrame {
      */
     public GroupThinkClient(){
         
+         this.addWindowListener(new WindowListener() {
+            @Override public void windowOpened(WindowEvent e) {}
+
+            @Override public void windowClosing(WindowEvent e) {}
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                boolean isLeader = false;
+                LOP lop = new LOP((short)myID.get(), isLeader);
+
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {
+
+            }
+        });
+        
         // Load Networking Tools:
         idToUser = new ConcurrentHashMap<Integer, User>();
         
         leader = new AtomicBoolean(false);
         
+        myID = new AtomicInteger(-1);
+        
+        nextUserID = new AtomicInteger(0);
+        
+        username = new AtomicReference<String>(null);
+        
+        messages = new ArrayList<JLabel>();
+        String un="";
+        
         // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
         defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
         chatRoom = new JPanel(new BorderLayout());
+        
+        
+        Thread pt = new Thread(new PacketWorker());
+        pt.start();
+
+        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
+        lt.start();
         chatNameList = new CheckBoxList(idToUser.values().toArray());
+        
+        un=showInputDialog(outerPanel, "Please enter your requested username:",
+                "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
+        username.compareAndSet(null, un);
+        
+        while(!requestUsername(un)){
+            if(currentError!=null)
+                showMessageDialog(outerPanel, currentError.getMessage());
+            else
+                showMessageDialog(outerPanel, "Unidentified error requesting " + username);
+
+            un = showInputDialog(outerPanel, "Please try another username:");
+        }
+        
+        chatNameList.setUsername(username.get());
+        System.out.println("I have a username!!!" + username.get());
+        
+        
+        
+        idToUser.put(myID.get(), new User(myID.get(), username.get()));
+        
         nameScroller = new JScrollPane(chatNameList);
-        chatLog = new JTextArea();
-        chatLog.setEditable(false);
+        chatLog = new JPanel(new GridLayout(0,1,2,2));
         chatLogScroller = new JScrollPane(chatLog);
         sendButton = new JButton();
-        sendButton.addActionListener(new SendAction());
+        sendButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ArrayList<Integer> sendTo = new ArrayList<Integer>();
+                if(!chatNameList.allChecked()) {
+                    for (String name : chatNameList.getCheckedItemNames()) {
+                        int id = -13;
+                        for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
+                            if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
+                                id = entry.getKey();
+                                break;
+                            }
+                        }
+                        if (id>0) {
+                            sendTo.add(id);
+                        }
+                    }
+                } else{
+                    sendTo.add(-1);
+                }
+
+                if(!sendTo.isEmpty()){
+                    int[] ids = new int[sendTo.size()];
+                    for(int i=0;i<sendTo.size();i++){
+                        ids[i] = sendTo.get(i);
+                    }
+                    sendChatMessage(messageField.getText(), ids);
+                    sendButton.setText("");
+                } else{
+                    showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
+                }
+
+            }
+        });
         try{
             Image img = ImageIO.read(getClass().getResource("send.jpg"));
             sendButton.setIcon(new ImageIcon(img));
@@ -163,6 +271,18 @@ public class GroupThinkClient extends JFrame {
                 @Override public void mouseExited(MouseEvent e) {}
             }
         );
+        messageField.addKeyListener(
+                new KeyListener() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if(e.getKeyChar() == KeyEvent.VK_ENTER){
+                            sendButton.doClick();
+                        }
+                    }
+                    @Override public void keyPressed(KeyEvent e) {}
+                    @Override public void keyReleased(KeyEvent e) {}
+                }
+        );
         inputPanel = new JPanel(new BorderLayout());
         inputPanel.add(sendButton, BorderLayout.EAST);
         inputPanel.add(messageField, BorderLayout.CENTER);
@@ -179,6 +299,18 @@ public class GroupThinkClient extends JFrame {
         repoPanel = new JPanel(repoLayout); //TODO - populate this with icons representing files in the repo
         repoPanel.setMaximumSize(new Dimension(REPO_PANEL_MAX_WIDTH, this.getHeight()));
         repoScroller = new JScrollPane(repoPanel);
+        
+        //try to generate some dummy repo files
+        //if(DEBUG){
+            Random rand = new Random();
+            ArrayList<RepoDocument> dummyFiles = new ArrayList<RepoDocument>();
+            for(int i=0;i<5;i++){
+                dummyFiles.add(new RepoDocument("File#"+(i+1), 2345l, System.currentTimeMillis()));
+            }
+            for(RepoDocument d : dummyFiles){
+                repoPanel.add(d.getFileIcon());
+            }
+        //}
 
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
@@ -198,61 +330,120 @@ public class GroupThinkClient extends JFrame {
 
         setContentPane(outerPanel);
 
-        setTitle("GroupThink Client");
+        setTitle("(" + username.get() + ") GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
-        username = showInputDialog(outerPanel, "Please enter your requested username:",
-                "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
         
-        while(!requestUsername(username)){
-            if(currentError!=null)
-                showMessageDialog(outerPanel, currentError.getMessage());
-            else
-                showMessageDialog(outerPanel, "Unidentified error requesting " + username);
-
-            username = showInputDialog(outerPanel, "Please try another username:");
-        }
-        
-        setTitle("(" + username + ") GroupThink Client");
-        idToUser.put(myID, new User(myID, username));
-        
-        Thread pt = new Thread(new PacketWorker());
-        pt.start();
-
-        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
-        lt.start();
     }
 
     private void sendChatMessage(String message, int[] recipients){
+        CMP cmp = null;
+        
         for(int i : recipients){
-            CMP cmp = new CMP(i, (short)myID, message);
+            System.out.println("to " + i);
+            cmp = new CMP(i, (short)myID.get(), message);
             try {
                 UDPMultiCaster.sendPacket(cmp);
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            if(cmp != null && i != -1){ //if not sending to everyone, be sure to display on user's screen
+                displayChatMessage(cmp, true);
+            }
         }
     }
-
-    public static void displayChatMessage(CMP p){
+    
+    public static void displayChatMessage(CMP p, boolean pm){
         String timeStamp = sdf.format(new Date());
-        User user = idToUser.get(p.getUserID());
-        String name = user.getUsername();
-        String message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+        String message = "";
+        
+        //System.out.println(idToUser.get(p.getUserID()));
+        
+        String name = p.getUserID() == myID.get()? username.get() : idToUser.get(p.getUserID()).getUsername();
+        //System.out.println("name is " + name);
+        Color c = chatNameList.getUserColor(name);
+        JLabel chatMessage = new JLabel();
+        if(!pm){ //if this is NOT a private message...
+            message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+        } else{
+            chatMessage.setFont(chatMessage.getFont().deriveFont(Font.ITALIC));
+            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
+        }
 
-        chatLog.append(message);
+        chatMessage.setText(message);
+        chatMessage.setForeground(c);
+        messages.add(chatMessage);
+        if(messages.size()>100){
+            chatLog.remove(messages.get(0));
+            messages.remove(0);
+        }
+
+        chatLog.add(chatMessage);
+        chatLogScroller.updateUI();
+//        Rectangle r = new Rectangle(0,chatLog.getHeight(),1,1);
+        chatLogScroller.getViewport().setViewPosition(new Point(0,chatLog.getHeight()));
+
     }
 
     public static void addUser(String name, int id){
-        idToUser.put(id, new User(id, name));
-        chatNameList.addName(name);
+        if(id!=myID.get()){
+            idToUser.put(id, new User(id, name));
+            System.out.println("name is " + name);
+            //ynchronized(chatNameList){
+            chatNameList.addName(name);
+            
+            
+        }
+        
+    }
+    
+    public static void removeUser(int id){
+        if(id != myID.get()){
+            if(idToUser.get(id)!=null){
+                chatNameList.removeName(idToUser.get(id).getUsername());
+                idToUser.remove(id);
+            }
+        }
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
-        return false; //stubS
+     
+        
+        username.compareAndSet(username.get(), un);
+        
+        System.out.println("Requesting for " + username.get());
+        //send out request
+        try{
+            UDPMultiCaster.sendPacket(new URP(un));
+        }catch(IOException ex){
+            ex.printStackTrace();
+        }
+        
+        try{
+            synchronized(myID){
+                myID.wait(1000);
+            }
+        }catch(InterruptedException ex){
+            ex.printStackTrace();
+        }
+         
+        
+        System.out.println("Done waiting. " + myID.get());
+        
+        
+        if(myID.get()==-1){
+            myID.compareAndSet(-1, 0);
+            User me = new User(0, username.get());
+            me.setIsLeader(true);
+            idToUser.put(0, me);
+            leader.getAndSet(true);
+        }
+        
+        return true;
     }
     
     //========================================================================//
@@ -381,42 +572,5 @@ public class GroupThinkClient extends JFrame {
         }
     }
 
-    //========================================================================//
-    //                             SEND ACTION                                //
-    //========================================================================//
-    
-    private static class SendAction implements ActionListener {
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            ArrayList<Integer> sendTo = new ArrayList<Integer>();
-            if (!chatNameList.allChecked()) {
-                for (Object o : chatNameList.getSelectedValuesList()) {
-                    String name = ((JCheckBox) o).getText();
-                    int id = -13;
-                    for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
-                        if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
-                            id = entry.getKey();
-                            break;
-                        }
-                    }
-                    sendTo.add(id);
-                }
-            } else {
-                sendTo.add(-1);
-            }
-
-            if (!sendTo.isEmpty()) {
-                int[] ids = new int[sendTo.size()];
-                for (int i = 0; i < sendTo.size(); i++) {
-                    ids[i] = sendTo.get(i);
-                }
-                //sendChatMessage(messageField.getText(), ids);
-            } else {
-                //showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
-            }
-
-        }
-    }
     
 }

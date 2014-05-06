@@ -2,6 +2,7 @@ package groupthinkclient;
 
 import GroupThink.GTP.*;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class PacketWorker implements Runnable {
 
@@ -81,12 +82,54 @@ public class PacketWorker implements Runnable {
     }
 
     private void handleURP(URP urp) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        System.out.println("Handeling " + urp + "   " + GroupThinkClient.username.get());
+        if(!urp.getUsername().equals(GroupThinkClient.username.get())){
+            System.out.println("not me");
+            if(GroupThinkClient.leader.get()){
+                System.out.println("I'm the leader");
+                int highest=-1;
+                for(int k : GroupThinkClient.idToUser.keySet()){
+                    
+                    if(k>highest){
+                        highest=k;
+                    }
+                }
+                try{
+                    //short s = highest+1;
+                    highest+=1;
+                    System.out.println("sending ucp for " + highest);
+                    GroupThinkClient.UDPMultiCaster.sendPacket(new UCP((short)-1, (short)highest, urp.getUsername()));
+                }catch(IOException ex){
+                    ex.printStackTrace();
+                }
+            }
+        }
+        
+        for(int k : GroupThinkClient.idToUser.keySet()){
+            try{
+            GroupThinkClient.UDPMultiCaster.sendPacket(new UCP((short)-1, (short)k, GroupThinkClient.idToUser.get(k).getUsername()));
+            }catch(IOException ex){
+                ex.printStackTrace();
+            }
+        }
+        
     }
     
     // Handler for username confirmation:
     private void handleUCP(UCP p){
+        
+        if(p.getUsername().equals(GroupThinkClient.username.get())){
+            synchronized(GroupThinkClient.myID){
+                GroupThinkClient.myID.compareAndSet(-1, p.getUserID());
+                
+                GroupThinkClient.addUser(GroupThinkClient.username.get(), GroupThinkClient.myID.get());
+                GroupThinkClient.myID.notifyAll();
+                return;
+            }
+        }
+        
         GroupThinkClient.addUser(p.getUsername(), p.getUserID());
+        
     }
 
     private void handleEP(EP ep) {
@@ -99,16 +142,16 @@ public class PacketWorker implements Runnable {
 
         int intendedUser = GroupThinkClient.PacketSniffer.intendedRecipient(p.getBytes());
 
-        if(intendedUser == -1 || intendedUser == GroupThinkClient.myID){
-            GroupThinkClient.displayChatMessage(p);
+        if(intendedUser == -1 || intendedUser == GroupThinkClient.myID.get()){
+            GroupThinkClient.displayChatMessage(p, !(intendedUser==-1));
         }
 
-        System.out.println(p);
+        //System.out.println(p);
     }
     
     // Handler for receiving the entire document:
     private void handleData(Data d){
-        if(((GTPPacket)d).getIntendedRecipient()!=GroupThinkClient.myID)
+        if(((GTPPacket)d).getIntendedRecipient()!=GroupThinkClient.myID.get())
             return;
 
         // note: use change list instead
@@ -117,7 +160,7 @@ public class PacketWorker implements Runnable {
         //GroupThinkClient.editor.append(GroupThinkClient.myDataList.getFile());
 
         try {
-            GroupThinkClient.UDPMultiCaster.sendPacket(new ACK(0, (short)GroupThinkClient.myID, d.getBlockNum()+1));
+            GroupThinkClient.UDPMultiCaster.sendPacket(new ACK(0, (short)GroupThinkClient.myID.get(), d.getBlockNum()+1));
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -135,5 +178,10 @@ public class PacketWorker implements Runnable {
             user.setLastHeartbeat(System.nanoTime());
             user.setActive(true);
         }
+    }
+    
+    private void handleLOP(LOP p){
+        GroupThinkClient.removeUser(p.getUserID());
+        //TODO handle the case of the leader logging out...
     }
 }

@@ -23,7 +23,7 @@ public class ListenerWorker implements Runnable {
                 int type = GroupThinkClient.PacketSniffer.packetType(b);
                 int intendedUser = GroupThinkClient.PacketSniffer.intendedRecipient(b);
 
-                if(intendedUser==-1 || intendedUser==GroupThinkClient.myID){
+                if(intendedUser==-1 || intendedUser==GroupThinkClient.myID.get()){
                     try{
                         switch(type){
                             case 1:

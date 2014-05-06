@@ -81,7 +81,7 @@ public class RepoDocument {
 //        icon.setBorder(b);
 
         try {
-            Image img = ImageIO.read(getClass().getResource("doc.png"));
+            Image img = ImageIO.read(getClass().getResource("db_file_sm.png"));
             ImageIcon imgIcon = new ImageIcon(img);
             label = new JLabel(getMetaDataHTML(), imgIcon, SwingConstants.CENTER);
         } catch (IOException ioe){

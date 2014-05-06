@@ -11,28 +11,41 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Vector;
 
 public class CheckBoxList extends JList{
+    private final UserColorGenerator UCG;
+
     protected static Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
-    protected static Vector<JCheckBox> checkboxes;
+    protected static Vector<Component> items;
     protected static DefaultListModel dflm;
+    protected static JLabel nameLabel;
+    private static String clientName;
+    private static HashMap<String, Color> nameToFontColorMap;
+    private static Object[] myItems;
 
     public CheckBoxList(Object[] items){
+        UCG = new UserColorGenerator();
+
+        nameToFontColorMap = new HashMap<String, Color>();
+        myItems=items;
+        
         dflm = new DefaultListModel();
         setModel(dflm);
-        checkboxes = new Vector<JCheckBox>();
-        for(Object o : items){
-            checkboxes.add(new JCheckBox(o.toString()));
-        }
-        setListData(checkboxes.toArray());
+        CheckBoxList.items = new Vector<Component>();
+
+        
+        //the first entry in the list should be a JLabel of the user's name
+        
 
 
         setCellRenderer(new CellRenderer());
         addMouseListener(new MouseAdapter(){
             public void mousePressed(MouseEvent e){
                  int index = locationToIndex(e.getPoint());
-                 if (index != -1) {
+                 if (index != -1 && (getModel().getElementAt(index) instanceof JCheckBox)) {
                      JCheckBox checkbox = (JCheckBox) getModel().getElementAt(index);
                      checkbox.setSelected(!checkbox.isSelected());
                      repaint();
@@ -43,13 +56,47 @@ public class CheckBoxList extends JList{
         setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
 
+    public Color getUserColor(String name){
+        return nameToFontColorMap.get(name);
+    }
+    
+    public void setUsername(String un){
+        clientName=un;
+        
+        nameLabel = new JLabel();
+        nameLabel.setText("<html><b>" + clientName + "</b></html>");
+        nameLabel.setOpaque(true);
+        Color bg =  new Color(0, 0, 0);
+        Color fg =  new Color(255, 255, 255);
+        nameLabel.setBackground(bg);
+        nameLabel.setForeground(fg);
+        nameLabel.setHorizontalAlignment(JLabel.CENTER);
+
+
+        CheckBoxList.items.add(0, nameLabel);
+
+
+        for(Object o : myItems){
+            
+            if(!o.toString().equals(clientName)){
+                nameToFontColorMap.put(o.toString(), UCG.getNextUserColor());
+                JCheckBox box = new JCheckBox(o.toString());
+                CheckBoxList.items.add(new JCheckBox(o.toString()));
+            }
+        }
+        setListData(CheckBoxList.items.toArray());
+    }
+
     public boolean allChecked(){
         boolean allChecked = true;
 
-        for(JCheckBox b : checkboxes){
-            if(!b.isSelected()){
-                allChecked = false;
-                break;
+        for(Component c : items){
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if(!b.isSelected()){
+                    allChecked = false;
+                    break;
+                }
             }
         }
         return allChecked;
@@ -58,39 +105,84 @@ public class CheckBoxList extends JList{
     public ArrayList<String> getCheckedItemNames(){
         ArrayList<String> checked = new ArrayList<String>();
 
-        for(JCheckBox b : checkboxes){
-            if(b.isSelected()){
-                checked.add(b.getText());
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.isSelected()) {
+                    checked.add(b.getText());
+                }
             }
         }
 
         return checked;
     }
 
+    public void removeName(String name){
+        //TODO add code to remove names from the list
+        items.remove(name);
+        nameToFontColorMap.remove(name);
+        setListData(items);
+    }
+
     public void addName(String name){
-        dflm.addElement(new JCheckBox(name));
+//        dflm.addElement(new JCheckBox(name));
+
+        //check if the name already exists in the list...
+        boolean userExists = false;
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    userExists = true;
+                    break;
+                }
+            }
+        }
+        if(!userExists){
+            items.add(new JCheckBox(name));
+            setListData(items);
+            nameToFontColorMap.put(name, UCG.getNextUserColor());
+        }
     }
 
     protected class CellRenderer implements ListCellRenderer{
         public Component getListCellRendererComponent(JList list, Object value, int index,
                                                       boolean isSelected, boolean cellHasFocus){
-            Color selectedBGColor = new Color(32, 255, 0);
-            Color selectedFGColor = new Color(10, 212, 0);
+            if (value instanceof JCheckBox) {
+                Color selectedBGColor = new Color(253, 253, 253);
+                Color selectedFGColor = new Color(0, 0, 0);
 
-            JCheckBox checkbox = new JCheckBox();
-            if(value instanceof JCheckBox) {
-               checkbox = (JCheckBox) value;
-            } else if(value instanceof String) {
-                checkbox = new JCheckBox((String) value);
+                JCheckBox checkbox = (JCheckBox) value;
+                checkbox.setOpaque(true);
+                checkbox.setBackground(isSelected ? selectedBGColor : nameToFontColorMap.get(checkbox.getText()));
+                checkbox.setForeground(isSelected ? selectedFGColor : Color.white);
+                checkbox.setEnabled(isEnabled());
+                checkbox.setFont(getFont());
+                checkbox.setFocusPainted(false);
+                checkbox.setBorderPainted(true);
+                checkbox.setBorder(isSelected ? UIManager.getBorder("List.focusCellHighlightBorder") : noFocusBorder);
+
+                return checkbox;
+            } else if(value instanceof JLabel){
+                JLabel label = (JLabel)value;
+                label.setFont(getFont());
+
+                return label;
+            } else{
+                Color selectedBGColor = new Color(32, 255, 0);
+                Color selectedFGColor = new Color(10, 212, 0);
+
+                JCheckBox checkbox = new JCheckBox(value.toString());
+
+                checkbox.setBackground(isSelected ? selectedBGColor : getBackground());
+                checkbox.setForeground(isSelected ? selectedFGColor : getForeground());
+                checkbox.setEnabled(isEnabled());
+                checkbox.setFont(getFont());
+                checkbox.setFocusPainted(false);
+                checkbox.setBorderPainted(true);
+                checkbox.setBorder(isSelected ? UIManager.getBorder("List.focusCellHighlightBorder") : noFocusBorder);
+                return checkbox;
             }
-            checkbox.setBackground(isSelected ? selectedBGColor : getBackground());
-            checkbox.setForeground(isSelected ? selectedFGColor : getForeground());
-            checkbox.setEnabled(isEnabled());
-            checkbox.setFont(getFont());
-            checkbox.setFocusPainted(false);
-            checkbox.setBorderPainted(true);
-            checkbox.setBorder(isSelected ? UIManager.getBorder("List.focusCellHighlightBorder") : noFocusBorder);
-            return checkbox;
         }
     }
 }
