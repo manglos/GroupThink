@@ -53,6 +53,9 @@ public class ListenerWorker implements Runnable {
                             case 9:
                                 GroupThinkClient.packetQueue.add(new Data(b));
                                 break;
+                            case 13:
+                                GroupThinkClient.packetQueue.add(new HP(b));
+                                break;
                         }
                         synchronized (GroupThinkClient.packetQueue) {
                             GroupThinkClient.packetQueue.notifyAll();

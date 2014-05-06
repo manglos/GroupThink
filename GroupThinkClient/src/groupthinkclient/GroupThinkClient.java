@@ -18,9 +18,8 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -49,7 +48,7 @@ public class GroupThinkClient extends JFrame {
     static EP currentError;
     static final Queue packetQueue = new Queue(); // queue of packets received
     //static DataList myDataList;
-    static Map<Integer, String> idToUsernameMap; // keep track of the current group
+    static ConcurrentHashMap<Integer, User> idToUser; // keep track of the current group
     private int leaderID; // keep track of the current leader
 
     // Gui Constants
@@ -82,8 +81,9 @@ public class GroupThinkClient extends JFrame {
     private static String document = "";
     private HashMap<Long, GlobalChange> gChanges;
     private HashMap<Long, LocalChange> lChange;
-    private AtomicBoolean leader;
+    public static AtomicBoolean leader;
     private long highestSequentiaGChange;
+    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //
 
     public static void main(String[] args) {
         // Multicaster to send packets:
@@ -128,13 +128,15 @@ public class GroupThinkClient extends JFrame {
     public GroupThinkClient(){
         
         // Load Networking Tools:
-        idToUsernameMap = new HashMap();
+        idToUser = new ConcurrentHashMap<Integer, User>();
+        
+        leader = new AtomicBoolean(false);
         
         // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
         defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
         chatRoom = new JPanel(new BorderLayout());
-        chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
+        chatNameList = new CheckBoxList(idToUser.values().toArray());
         nameScroller = new JScrollPane(chatNameList);
         chatLog = new JTextArea();
         chatLog.setEditable(false);
@@ -203,6 +205,7 @@ public class GroupThinkClient extends JFrame {
         pack();
         username = showInputDialog(outerPanel, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
+        
         while(!requestUsername(username)){
             if(currentError!=null)
                 showMessageDialog(outerPanel, currentError.getMessage());
@@ -213,7 +216,7 @@ public class GroupThinkClient extends JFrame {
         }
         
         setTitle("(" + username + ") GroupThink Client");
-        idToUsernameMap.put(myID, username);
+        idToUser.put(myID, new User(myID, username));
         
         Thread pt = new Thread(new PacketWorker());
         pt.start();
@@ -235,68 +238,21 @@ public class GroupThinkClient extends JFrame {
 
     public static void displayChatMessage(CMP p){
         String timeStamp = sdf.format(new Date());
-        String name = idToUsernameMap.get(p.getUserID());
+        User user = idToUser.get(p.getUserID());
+        String name = user.getUsername();
         String message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
 
         chatLog.append(message);
     }
 
     public static void addUser(String name, int id){
-        idToUsernameMap.put(id, name);
+        idToUser.put(id, new User(id, name));
         chatNameList.addName(name);
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
-        
-        GTPPacket request = new URP(un);
-        System.out.println(((URP)request).getUsername());
-        GTPPacket response=null;
-        byte[] rb=null;
-
-        try {
-            UDPMultiCaster.sendPacket(request);
-            
-            boolean retry=true;
-            
-            //retries until reciept of UCP or EP pertaining to the request
-            while(retry){
-                rb = UDPMultiCaster.receivePacket();
-                
-                int code = PacketSniffer.packetType(rb);
-                int recipient = PacketSniffer.intendedRecipient(rb);
-               
-                //if packet is for everyone, and is a valid UCP
-                if(recipient==-1 && code==PacketSniffer.OC_UCP){
-                    response = new UCP(rb);
-                    if(((UCP)response).getUsername().equals(un))
-                        retry=false;
-                }
-                //else if packet is for everyone, and is a valid EP with code 3 - <username> is unavailable
-                else if(recipient==-1 && code==PacketSniffer.OC_EP && PacketSniffer.errorCode(rb)==3){
-                    
-                    if(PacketSniffer.getErrorUsername(rb)!=null && PacketSniffer.getErrorUsername(rb).equals(un)){
-                        response = new EP(rb);
-                        //currentError=(EP)response;
-                        System.out.println("Error Code "+ response);
-                        return false;
-                    }
-                }
-                
-                System.out.println("retrying");
-            }
-            myID=((UCP)response).getUserID();
-            System.out.println("Username confirmed ID = " + myID);
-            return true;
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        } catch (WrongPacketTypeException ex) {
-            //System.out.println(ex);
-            response = new EP(rb);
-            UDPMultiCaster.printBytes(response.getBytes());
-            System.out.println("Error Code "+ response);
-        }
-        return false;
+        return false; //stubS
     }
     
     //========================================================================//
@@ -438,8 +394,8 @@ public class GroupThinkClient extends JFrame {
                 for (Object o : chatNameList.getSelectedValuesList()) {
                     String name = ((JCheckBox) o).getText();
                     int id = -13;
-                    for (Map.Entry<Integer, String> entry : idToUsernameMap.entrySet()) {
-                        if (entry.getValue().equalsIgnoreCase(name)) {
+                    for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
+                        if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
                             id = entry.getKey();
                             break;
                         }

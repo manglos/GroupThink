@@ -135,9 +135,9 @@ RequestQueueIDs is a list of n users in queue for the token.
 
 Heartbeat Packet (HP)
 
-    2 bytes     2 bytes        2 bytes
-  -------------------------------------
- |  Opcode  |  IntendedUser |  UserID  |
-  -------------------------------------
+    2 bytes     2 bytes        2 bytes    1 byte
+  --------------------------------------------------
+ |  Opcode  |  IntendedUser |  UserID  |  IsLeader  |
+  --------------------------------------------------
 
 HPs (OC - 13) are used to confirm that a client is still active. IntendedUser is always -1.

@@ -4,6 +4,11 @@
 
 package groupthinkclient;
 
+import GroupThink.GTP.HP;
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+
 /**
  *
  * @author angie
@@ -14,12 +19,29 @@ public class HeartbeatWorker implements Runnable {
 
     @Override
     public void run() {
-        // listen for heartbeats (w/ Zs)
-        // any heartbeat leader?
-        // if (! leader) {
-          // are any when did I last hear from a leader
-        //}
         
-        // send heartbeat w/ leader-flag
+        //First, send my own hearbeat to everyone
+        try{
+            GroupThinkClient.UDPMultiCaster.sendPacket(new HP((short)GroupThinkClient.myID, GroupThinkClient.leader.get()));
+        }catch(IOException ex){
+            ex.printStackTrace();
+        }
+        
+        //Next, iterate through my user map and decide if user is active or inactive
+        Iterator<Map.Entry<Integer, User>> it = GroupThinkClient.idToUser.entrySet().iterator();
+        
+        while(it.hasNext()){
+            Map.Entry<Integer, User> userEntry = it.next();
+            User user = userEntry.getValue();
+            
+            if((System.nanoTime() - user.getLastHeartbeat()) > GroupThinkClient.ACTIVE_TIMEOUT){
+                user.setActive(false);
+            }
+            else{
+                user.setActive(true);
+            }
+            
+        }
+        
     }  
 }

@@ -6,12 +6,13 @@ import java.nio.ByteBuffer;
 public class HP extends GTPPacket {
 
     short userID;
+    boolean isLeader;
 
-    public HP(short user) {
+    public HP(short user, boolean l) {
         super(13, -1);
         userID = user;
         
-        byte[] b = new byte[6];
+        byte[] b = new byte[7];
 
         short num = (short) super.opCode;
 
@@ -37,6 +38,13 @@ public class HP extends GTPPacket {
 
         b[4] = n[0];
         b[5] = n[1];
+        
+        if(isLeader){
+            b[6]=1;
+        }
+        else{
+            b[6]=0;
+        }
        
         
         this.bytes = b;
@@ -71,6 +79,13 @@ public class HP extends GTPPacket {
         
         bb = ByteBuffer.wrap(ui);
         userID = bb.getShort();
+        
+        if(b[6]==1){
+            isLeader=true;
+        }
+        else{
+            isLeader=false;
+        }
 
         this.bytes=b;
         setBytes();

@@ -16,6 +16,7 @@ public class PacketWorker implements Runnable {
             // While there are still packets, send to the correct place:
             if(packet!=null){
                 System.out.println(packet);
+                
                 switch(packet.getOP()){
                     case 1: // handle WCP (write)
                         handleWCP((WCP) packet);
@@ -43,6 +44,9 @@ public class PacketWorker implements Runnable {
                         break;
                     case 9: // handle DATA (transmit entire document)
                         handleData((Data) packet);
+                        break;
+                    case 13: // handle HP (transmit entire document)
+                        handleHP((HP) packet);
                         break;
                 }
             } 
@@ -116,6 +120,20 @@ public class PacketWorker implements Runnable {
             GroupThinkClient.UDPMultiCaster.sendPacket(new ACK(0, (short)GroupThinkClient.myID, d.getBlockNum()+1));
         } catch (IOException ex) {
             ex.printStackTrace();
+        }
+    }
+
+    // Handler for heart beats
+    private void handleHP(HP hp){
+        setActive((int)hp.getUserID());
+    }
+    
+    private void setActive(int id){
+        User user = GroupThinkClient.idToUser.get(id);
+        
+        if(user!=null){
+            user.setLastHeartbeat(System.nanoTime());
+            user.setActive(true);
         }
     }
 }
