@@ -26,6 +26,9 @@ public class PacketWorker implements Runnable{
                     case 9:
                         handleData((Data)p);
                         break;
+                    case 14:
+                        handleLOP((LOP)p);
+                        break;
                 }
             }
             try {
@@ -35,6 +38,11 @@ public class PacketWorker implements Runnable{
             }
         }
 
+    }
+
+    private void handleLOP(LOP p){
+        GroupThinkClient.removeUser(p.getUserID());
+        //TODO handle the case of the leader logging out...
     }
 
     private void handleUCP(UCP p){
@@ -50,7 +58,7 @@ public class PacketWorker implements Runnable{
             GroupThinkClient.displayChatMessage(p, (intendedUser!= -1));
         }
 
-        System.out.println(p);
+//        System.out.println(p);
     }
 
     private void handleData(Data d){

@@ -117,6 +117,39 @@ public class GroupThinkClient extends JFrame {
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
+        this.addWindowListener(new WindowListener() {
+            @Override public void windowOpened(WindowEvent e) {}
+
+            @Override public void windowClosing(WindowEvent e) {}
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                boolean isLeader = false;
+                LOP lop = new LOP((short)myID, isLeader);
+
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {
+
+            }
+        });
+
         idToUsernameMap = new HashMap<Integer, String>();
         sdf = new SimpleDateFormat("HH:mm:ss");
 
@@ -334,7 +367,13 @@ public class GroupThinkClient extends JFrame {
             idToUsernameMap.put(id, name);
             chatNameList.addName(name);
         }
+    }
 
+    public static void removeUser(int id){
+        if(id != myID){
+            chatNameList.removeName(idToUsernameMap.get(id));
+            idToUsernameMap.remove(id);
+        }
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)

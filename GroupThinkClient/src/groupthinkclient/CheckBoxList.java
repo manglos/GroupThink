@@ -107,6 +107,9 @@ public class CheckBoxList extends JList{
 
     public void removeName(String name){
         //TODO add code to remove names from the list
+        items.remove(name);
+        nameToFontColorMap.remove(name);
+        setListData(items);
     }
 
     public void addName(String name){
