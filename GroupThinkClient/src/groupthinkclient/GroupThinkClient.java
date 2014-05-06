@@ -22,6 +22,7 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.UIManager.*;
+import javax.swing.text.DefaultCaret;
 
 import static javax.swing.JOptionPane.*;
 
@@ -54,7 +55,7 @@ public class GroupThinkClient extends JFrame {
     static Map<Integer, String> idToUsernameMap;
 
     //GUI-related variables
-    private String username;
+    private static String username;
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
     private JPanel inputPanel;
@@ -63,8 +64,9 @@ public class GroupThinkClient extends JFrame {
 
     private JButton sendButton;
     private JTextField messageField;
-    private static JTextArea chatLog;
-    private JScrollPane chatLogScroller;
+    /*Replacing the chat log with a jpanel to allow for individual message formatting*/
+    private static JPanel chatLog;
+    private static JScrollPane chatLogScroller;
     private JScrollPane nameScroller;
     private JScrollPane repoScroller;
     private JSplitPane innerSplitPane;
@@ -75,6 +77,8 @@ public class GroupThinkClient extends JFrame {
     private static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
 
+    private static ArrayList<JLabel> messages;
+
     private static SimpleDateFormat sdf;
 
     public static void main(String[] args) {
@@ -82,6 +86,8 @@ public class GroupThinkClient extends JFrame {
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
         currentError = null;
         myQueue = new Queue();
+
+        messages = new ArrayList<JLabel>();
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -114,24 +120,29 @@ public class GroupThinkClient extends JFrame {
         idToUsernameMap = new HashMap<Integer, String>();
         sdf = new SimpleDateFormat("HH:mm:ss");
 
-//        if(DEBUG){
-//            //populate the name list with dummy data
-//            for(int i=0;i<10;i++){
-//                idToUsernameMap.put(i, "Name"+i);
-//            }
-//        }
+        username = showInputDialog(outerPanel, "Please enter your requested username:",
+                "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
+        while(!requestUsername(username)){
+            if(currentError!=null)
+                showMessageDialog(outerPanel, currentError.getMessage());
+            else
+                showMessageDialog(outerPanel, "Unidentified error requesting " + username);
+
+            username = showInputDialog(outerPanel, "Please try another username:");
+        }
 
         defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
 
         chatRoom = new JPanel(new BorderLayout());
 //        chatRoom.setBorder(defaultPanelBorder);
 
-        chatNameList = new CheckBoxList(idToUsernameMap.values().toArray());
+        chatNameList = new CheckBoxList(idToUsernameMap.values().toArray(), username);
         nameScroller = new JScrollPane(chatNameList);
 
-        chatLog = new JTextArea();
-        chatLog.setEditable(false);
+        chatLog = new JPanel(new GridLayout(0,1,2,2));
+//        chatLog.setMaximumSize(new Dimension(80, chatLog.getHeight()));
         chatLogScroller = new JScrollPane(chatLog);
+//        ((DefaultCaret)chatLog.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
         sendButton = new JButton();
         sendButton.addActionListener(new ActionListener() {
@@ -139,8 +150,7 @@ public class GroupThinkClient extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 ArrayList<Integer> sendTo = new ArrayList<Integer>();
                 if(!chatNameList.allChecked()) {
-                    for (Object o : chatNameList.getSelectedValuesList()) {
-                        String name = ((JCheckBox) o).getText();
+                    for (String name : chatNameList.getCheckedItemNames()) {
                         int id = -13;
                         for (Map.Entry<Integer, String> entry : idToUsernameMap.entrySet()) {
                             if (entry.getValue().equalsIgnoreCase(name)) {
@@ -148,7 +158,9 @@ public class GroupThinkClient extends JFrame {
                                 break;
                             }
                         }
-                        sendTo.add(id);
+                        if (id>0) {
+                            sendTo.add(id);
+                        }
                     }
                 } else{
                     sendTo.add(-1);
@@ -165,6 +177,7 @@ public class GroupThinkClient extends JFrame {
                         ids[i] = sendTo.get(i);
                     }
                     sendChatMessage(messageField.getText(), ids);
+                    sendButton.setText("");
                 } else{
                     showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
                 }
@@ -190,6 +203,18 @@ public class GroupThinkClient extends JFrame {
                 @Override public void mouseEntered(MouseEvent e) {}
                 @Override public void mouseExited(MouseEvent e) {}
             }
+        );
+        messageField.addKeyListener(
+                new KeyListener() {
+                    @Override
+                    public void keyTyped(KeyEvent e) {
+                        if(e.getKeyChar() == KeyEvent.VK_ENTER){
+                            sendButton.doClick();
+                        }
+                    }
+                    @Override public void keyPressed(KeyEvent e) {}
+                    @Override public void keyReleased(KeyEvent e) {}
+                }
         );
         inputPanel = new JPanel(new BorderLayout());
         inputPanel.add(sendButton, BorderLayout.EAST);
@@ -243,17 +268,7 @@ public class GroupThinkClient extends JFrame {
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
-        username = showInputDialog(outerPanel, "Please enter your requested username:",
-                "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
-        while(!requestUsername(username)){
-            if(currentError!=null)
-                showMessageDialog(outerPanel, currentError.getMessage());
-            else
-                showMessageDialog(outerPanel, "Unidentified error requesting " + username);
 
-            username = showInputDialog(outerPanel, "Please try another username:");
-        }
-        
         setTitle("(" + username + ") GroupThink Client");
         idToUsernameMap.put(myID, username);
         
@@ -271,27 +286,54 @@ public class GroupThinkClient extends JFrame {
     }
 
     private void sendChatMessage(String message, int[] recipients){
+        CMP cmp = null;
         for(int i : recipients){
-            CMP cmp = new CMP(i, (short)myID, message);
+            cmp = new CMP(i, (short)myID, message);
             try {
                 UDPMultiCaster.sendPacket(cmp);
             } catch (IOException e) {
                 e.printStackTrace();
             }
+
+            if(cmp != null && i != -1){ //if not sending to everyone, be sure to display on user's screen
+                displayChatMessage(cmp, true);
+            }
         }
     }
 
-    public static void displayChatMessage(CMP p){
+    public static void displayChatMessage(CMP p, boolean pm){
         String timeStamp = sdf.format(new Date());
-        String name = idToUsernameMap.get(p.getUserID());
-        String message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+        String message = "";
+        String name = p.getUserID() == myID? username : idToUsernameMap.get(p.getUserID());
+        Color c = chatNameList.getUserColor(name);
+        JLabel chatMessage = new JLabel();
+        if(!pm){ //if this is NOT a private message...
+            message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+        } else{
+            chatMessage.setFont(chatMessage.getFont().deriveFont(Font.ITALIC));
+            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUsernameMap.get(p.getIntendedRecipient()), p.getMessage());
+        }
 
-        chatLog.append(message);
+        chatMessage.setText(message);
+        chatMessage.setForeground(c);
+        messages.add(chatMessage);
+        if(messages.size()>100){
+            chatLog.remove(messages.get(0));
+            messages.remove(0);
+        }
+
+        chatLog.add(chatMessage);
+        chatLogScroller.updateUI();
+//        Rectangle r = new Rectangle(0,chatLog.getHeight(),1,1);
+        chatLogScroller.getViewport().setViewPosition(new Point(0,chatLog.getHeight()));
+
     }
 
     public static void addUser(String name, int id){
-        idToUsernameMap.put(id, name);
-        chatNameList.addName(name);
+        if(id != myID) {
+            idToUsernameMap.put(id, name);
+            chatNameList.addName(name);
+        }
 
     }
     
@@ -308,7 +350,7 @@ public class GroupThinkClient extends JFrame {
             
             boolean retry=true;
             
-            //retries until reciept of UCP or EP pertaining to the request
+            //retries until receipt of UCP or EP pertaining to the request
             while(retry){
                 rb = UDPMultiCaster.receivePacket();
                 

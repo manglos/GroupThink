@@ -47,7 +47,7 @@ public class PacketWorker implements Runnable{
         int intendedUser = GroupThinkClient.PacketSniffer.intendedRecipient(p.getBytes());
 
         if(intendedUser == -1 || intendedUser == GroupThinkClient.myID){
-            GroupThinkClient.displayChatMessage(p);
+            GroupThinkClient.displayChatMessage(p, (intendedUser!= -1));
         }
 
         System.out.println(p);
