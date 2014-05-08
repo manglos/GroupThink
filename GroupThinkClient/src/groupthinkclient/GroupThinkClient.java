@@ -1,7 +1,6 @@
 package groupthinkclient;
 
 import GroupThink.GTP.*;
-
 import java.awt.*;
 import java.awt.event.*;
 import java.io.BufferedReader;
@@ -27,12 +26,8 @@ import javax.swing.*;
 
 import static javax.swing.JOptionPane.*;
 
-import javax.swing.UIManager.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.Border;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.text.Document;
 import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
@@ -43,7 +38,8 @@ public class GroupThinkClient extends JFrame {
     // Networking Constants
     private static final int PORT = 2606;
     private static final String HOSTNAME = "224.0.0.0";
-
+    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
+    
     // Networking Variables
     static DataOutputStream dos = null; // For writing to the socket
     static DataInputStream dis = null;  // For reading from the socket
@@ -83,16 +79,14 @@ public class GroupThinkClient extends JFrame {
     private static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
     private static SimpleDateFormat sdf;
+    private static ArrayList<JLabel> messages;
     
     // Change / Synchronization Attributes:
-    private static String document = "";
-    private HashMap<Long, GlobalChange> gChanges;
-    private HashMap<Long, LocalChange> lChange;
-    public static AtomicBoolean leader;
-    private long highestSequentiaGChange;
-    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
-    
-    private static ArrayList<JLabel> messages;
+    public ChangeLogger logger;                  // adds changes to logs
+    public HashMap<Long, GlobalChange> gChanges; // list of global changes
+    public HashMap<Long, LocalChange> lChange;   // list of local changes
+    public static AtomicBoolean leader;          // do you have the token?
+    public long highestSequentialChange = 0;     // global change counter
     
 
     public static void main(String[] args) {
@@ -319,8 +313,10 @@ public class GroupThinkClient extends JFrame {
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         editor.setCodeFoldingEnabled(true);
-        // <ANG>
-        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(new ChangeLogger(this));
+        
+        // <ANG> register the change-logging document filter:
+        this.logger = new ChangeLogger(this);
+        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(logger);
         // <\ANG>
         
         rtsp = new RTextScrollPane(editor);

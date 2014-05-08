@@ -16,7 +16,7 @@ public class WCP extends GTPPacket {
         spaceNumber = space;
         myChar = c;
         
-        byte[] b = new byte[13];
+        byte[] b = new byte[14];
 
         short num = (short) super.opCode;
 
@@ -64,11 +64,12 @@ public class WCP extends GTPPacket {
         b[10] = n[0];
         b[11] = n[1];
         
-        dbuf = ByteBuffer.allocate(1);
+        dbuf = ByteBuffer.allocate(2);
         dbuf.putChar(myChar);
         n = dbuf.array();
         
         b[12] = n[0];
+        b[13] = n[1]; // </ANG>
         
         
         this.bytes = b;
@@ -125,11 +126,13 @@ public class WCP extends GTPPacket {
         bb = ByteBuffer.wrap(spn);
         spaceNumber = bb.getShort();
         
-        byte[] ch = new byte[1];
+        byte[] ch = new byte[2]; // <ANG> chars are 2 bytes! </ANG>
         ch[0] = b[12];
+        ch[1] = b[13]; // </ANG>
         
-        bb = ByteBuffer.wrap(op);
+        bb = ByteBuffer.wrap(ch);
         myChar = bb.getChar();
+        System.out.println("TEST: " + myChar);
         
 
         this.bytes=b;

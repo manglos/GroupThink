@@ -66,7 +66,12 @@ public class PacketWorker implements Runnable {
     }
 
     private void handleWCP(WCP wcp) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if (wcp.getUserID() != (short) GroupThinkClient.myID.get()) {
+            System.out.println("=>RECEIVING PACKET!");
+            synchronized (GroupThinkClient.editor) {
+                GroupThinkClient.editor.append("" + wcp.getChar());
+            }
+        }
     }
 
     private void handleDCP(DCP dcp) {
