@@ -6,17 +6,15 @@ import java.nio.ByteBuffer;
 public class DCP extends GTPPacket {
 
     short userID, seqNumber, lineNumber, spaceNumber;
-    char myChar;
 
-    public DCP(short ir, short user, short seq, short line, short space, char c) {
+    public DCP(short ir, short user, short seq, short line, short space) {
         super(2, ir);
         userID = user;
         seqNumber = seq;
         lineNumber = line;
         spaceNumber = space;
-        myChar = c;
         
-        byte[] b = new byte[13];
+        byte[] b = new byte[12];
 
         short num = (short) super.opCode;
 
@@ -64,13 +62,6 @@ public class DCP extends GTPPacket {
         b[10] = n[0];
         b[11] = n[1];
         
-        dbuf = ByteBuffer.allocate(1);
-        dbuf.putChar(myChar);
-        n = dbuf.array();
-        
-        b[12] = n[0];
-        
-        
         this.bytes = b;
         
         setBytes();
@@ -79,7 +70,7 @@ public class DCP extends GTPPacket {
     public DCP(byte[] b) throws WrongPacketTypeException{
         super(b);
         
-        if(super.getOP()!=1){
+        if(super.getOP()!= 2){
             throw new WrongPacketTypeException("Not a valid DCP Packet");
         }
         
@@ -125,12 +116,6 @@ public class DCP extends GTPPacket {
         bb = ByteBuffer.wrap(spn);
         spaceNumber = bb.getShort();
         
-        byte[] ch = new byte[1];
-        ch[0] = b[12];
-        
-        bb = ByteBuffer.wrap(op);
-        myChar = bb.getChar();
-        
 
         this.bytes=b;
         setBytes();
@@ -150,10 +135,6 @@ public class DCP extends GTPPacket {
     
     public short getSpaceNumber() {
         return spaceNumber;
-    }
-    
-    public char getChar() {
-        return myChar;
     }
     
     public void setBytes() {

@@ -3,6 +3,9 @@ package groupthinkclient;
 import GroupThink.GTP.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.text.BadLocationException;
 
 public class PacketWorker implements Runnable {
 
@@ -68,14 +71,34 @@ public class PacketWorker implements Runnable {
     private void handleWCP(WCP wcp) {
         if (wcp.getUserID() != (short) GroupThinkClient.myID.get()) {
             System.out.println("=>RECEIVING PACKET!");
+            int position = wcp.getLineNumber();
+            String s = "" + wcp.getChar();
             synchronized (GroupThinkClient.editor) {
-                GroupThinkClient.editor.append("" + wcp.getChar());
+                GroupThinkClient.logger.setActivation(false);
+                try {
+                    GroupThinkClient.editor.getDocument().insertString(position, s, null);
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                GroupThinkClient.logger.setActivation(true);
             }
         }
     }
 
     private void handleDCP(DCP dcp) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if (dcp.getUserID() != (short) GroupThinkClient.myID.get()) {
+            System.out.println("=>RECEIVING DELETE PACKET!");
+            int position = dcp.getLineNumber();
+            synchronized (GroupThinkClient.editor) {
+                GroupThinkClient.logger.setActivation(false);
+                try {
+                    GroupThinkClient.editor.getDocument().remove(position, 1);
+                } catch (BadLocationException ex) {
+                    Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                GroupThinkClient.logger.setActivation(true);
+            }
+        }
     }
 
     private void handleRPP(RPP rpp) {

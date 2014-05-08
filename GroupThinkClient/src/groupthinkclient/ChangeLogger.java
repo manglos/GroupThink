@@ -77,7 +77,7 @@ public class ChangeLogger extends DocumentFilter {
         System.out.println("remove"); // testing
         // if you are the leader, put the change in the global log and multicast
         if (this.client.leader.get()) {
-            removeGlobally(offset, length);
+            removeGlobally((short) offset, length);
         } 
         // otherwise, buffer the change in the local log and request leadership
         else {
@@ -111,8 +111,21 @@ public class ChangeLogger extends DocumentFilter {
         // to do
     }
     
-    private void removeGlobally(int offset, int length) {
-        // to do
+    private void removeGlobally(short offset, int length) {
+        DCP newPacket;
+        short id = (short) client.myID.get();
+        for (int i=0; i<length; i++) {
+            try {
+                System.out.println("=>SENDING PACKET");
+                newPacket = new DCP((short) -1,(short) id, (short) 1, offset,
+                        (short) 0);
+                GroupThinkClient.UDPMultiCaster.sendPacket(newPacket);
+            }
+            catch (IOException ex) {
+                Logger.getLogger(ChangeLogger.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            // to do : add to global queue
+        }
     }
 
     private void removeLocally(int offset, int length) {
