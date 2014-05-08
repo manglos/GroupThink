@@ -30,6 +30,10 @@ import static javax.swing.JOptionPane.*;
 import javax.swing.UIManager.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.Document;
+import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
@@ -315,7 +319,10 @@ public class GroupThinkClient extends JFrame {
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         editor.setCodeFoldingEnabled(true);
-
+        // <ANG>
+        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(new ChangeLogger(this));
+        // <\ANG>
+        
         rtsp = new RTextScrollPane(editor);
 
         innerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
@@ -329,7 +336,7 @@ public class GroupThinkClient extends JFrame {
         outerPanel.add(repoScroller, BorderLayout.EAST);
 
         setContentPane(outerPanel);
-
+        
         setTitle("(" + username.get() + ") GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
         setLocationRelativeTo(null); //<-- centers the gui on screen
