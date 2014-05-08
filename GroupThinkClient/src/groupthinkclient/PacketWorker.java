@@ -41,6 +41,7 @@ public class PacketWorker implements Runnable{
     }
 
     private void handleLOP(LOP p){
+        System.out.println("Removing user: " + p.getUserID());
         GroupThinkClient.removeUser(p.getUserID());
         //TODO handle the case of the leader logging out...
     }

@@ -119,35 +119,21 @@ public class GroupThinkClient extends JFrame {
     public GroupThinkClient(){
         this.addWindowListener(new WindowListener() {
             @Override public void windowOpened(WindowEvent e) {}
-
             @Override public void windowClosing(WindowEvent e) {}
-
             @Override
             public void windowClosed(WindowEvent e) {
                 boolean isLeader = false;
                 LOP lop = new LOP((short)myID, isLeader);
-
+                try {
+                    UDPMultiCaster.sendPacket(lop);
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
             }
-
-            @Override
-            public void windowIconified(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowDeiconified(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowActivated(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowDeactivated(WindowEvent e) {
-
-            }
+            @Override public void windowIconified(WindowEvent e) {}
+            @Override public void windowDeiconified(WindowEvent e) {}
+            @Override public void windowActivated(WindowEvent e) {}
+            @Override public void windowDeactivated(WindowEvent e) {}
         });
 
         idToUsernameMap = new HashMap<Integer, String>();
