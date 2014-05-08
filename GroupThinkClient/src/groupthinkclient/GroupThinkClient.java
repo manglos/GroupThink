@@ -18,82 +18,95 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.border.Border;
-import javax.swing.UIManager.*;
-import javax.swing.text.DefaultCaret;
 
 import static javax.swing.JOptionPane.*;
 
+import javax.swing.UIManager.*;
+import javax.swing.UIManager.LookAndFeelInfo;
+import javax.swing.border.Border;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.Document;
+import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 public class GroupThinkClient extends JFrame {
-    //Constants
-    private static boolean DEBUG = true;
-    private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
-    private final int DOC_ROWS = 20;
-    private final int DOC_COLS = 80;
-    private final int GUI_WIDTH = 500;
-    private final int GUI_HEIGHT = 300;
-    private final int REPO_PANEL_MAX_WIDTH = 30;
+    
+    // Networking Constants
     private static final int PORT = 2606;
     private static final String HOSTNAME = "224.0.0.0";
 
-    //Communication/networking variables
-    static DataOutputStream dos = null;
-    static DataInputStream dis = null;
-    static DataInputStream is;
-    static PrintWriter out;
+    // Networking Variables
+    static DataOutputStream dos = null; // For writing to the socket
+    static DataInputStream dis = null;  // For reading from the socket
+    //static DataInputStream is;
+    static PrintWriter out;             // For persisting the file [commit]
     static BufferedReader in = null;
-    static int myID;
+    static AtomicInteger myID;
     static EP currentError;
-    static Queue myQueue;
-    static DataList myDataList;
-    static Map<Integer, String> idToUsernameMap;
+    static final Queue packetQueue = new Queue(); // queue of packets received
+    //static DataList myDataList;
+    static ConcurrentHashMap<Integer, User> idToUser; // keep track of the current group
+    private int leaderID; // keep track of the current leader
+    public AtomicInteger nextUserID;
 
-    //GUI-related variables
-    private static String username;
+    // Gui Constants
+    private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
+    private final int GUI_WIDTH = 500;
+    private final int GUI_HEIGHT = 300;
+    private final int REPO_PANEL_MAX_WIDTH = 30;
+    
+    // GUI Variables
+    public static AtomicReference<String> username;
     private JPanel chatRoom;
     private JPanel chatRoomPanel;
     private JPanel inputPanel;
     private JPanel repoPanel;
     private JPanel outerPanel;
-
     private JButton sendButton;
-    private JTextField messageField;
-    /*Replacing the chat log with a jpanel to allow for individual message formatting*/
+    private static JTextField messageField;
     private static JPanel chatLog;
     private static JScrollPane chatLogScroller;
     private JScrollPane nameScroller;
     private JScrollPane repoScroller;
     private JSplitPane innerSplitPane;
-
     private RTextScrollPane rtsp;
     static RSyntaxTextArea editor;
-
     private static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
-
-    private static ArrayList<JLabel> messages;
-
     private static SimpleDateFormat sdf;
+    
+    // Change / Synchronization Attributes:
+    private static String document = "";
+    private HashMap<Long, GlobalChange> gChanges;
+    private HashMap<Long, LocalChange> lChange;
+    public static AtomicBoolean leader;
+    private long highestSequentiaGChange;
+    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
+    
+    private static ArrayList<JLabel> messages;
+    
 
     public static void main(String[] args) {
+        // Multicaster to send packets:
         UDPMultiCaster.initialize(PORT, HOSTNAME);
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
-        currentError = null;
-        myQueue = new Queue();
-
-        messages = new ArrayList<JLabel>();
-
+        
+        
+        // Start GUI:
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
 
-                //Set the Look and Feel...
+                // Set the Look and Feel:
                 try {
                     for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                         if ("Nimbus".equals(info.getName())) {
@@ -101,23 +114,30 @@ public class GroupThinkClient extends JFrame {
                             break;
                         }
                     }
-                } catch (Exception e) {
+                } catch (ClassNotFoundException | 
+                         IllegalAccessException | 
+                         InstantiationException | 
+                         UnsupportedLookAndFeelException e
+                        ) {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
                     e.printStackTrace();
                 }
 
+                // Create the GUI:
                 GroupThinkClient client = new GroupThinkClient();
+                
+                // Display the GUI:
                 client.setVisible(true);
             }
         });
-
     }
 
     /*
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
-        this.addWindowListener(new WindowListener() {
+        
+         this.addWindowListener(new WindowListener() {
             @Override public void windowOpened(WindowEvent e) {}
 
             @Override public void windowClosing(WindowEvent e) {}
@@ -125,7 +145,7 @@ public class GroupThinkClient extends JFrame {
             @Override
             public void windowClosed(WindowEvent e) {
                 boolean isLeader = false;
-                LOP lop = new LOP((short)myID, isLeader);
+                LOP lop = new LOP((short)myID.get(), isLeader);
 
             }
 
@@ -149,34 +169,57 @@ public class GroupThinkClient extends JFrame {
 
             }
         });
-
-        idToUsernameMap = new HashMap<Integer, String>();
+        
+        // Load Networking Tools:
+        idToUser = new ConcurrentHashMap<Integer, User>();
+        
+        leader = new AtomicBoolean(false);
+        
+        myID = new AtomicInteger(-1);
+        
+        nextUserID = new AtomicInteger(0);
+        
+        username = new AtomicReference<String>(null);
+        
+        messages = new ArrayList<JLabel>();
+        String un="";
+        
+        // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
+        defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
+        chatRoom = new JPanel(new BorderLayout());
+        
+        
+        Thread pt = new Thread(new PacketWorker());
+        pt.start();
 
-        username = showInputDialog(outerPanel, "Please enter your requested username:",
+        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
+        lt.start();
+        chatNameList = new CheckBoxList(idToUser.values().toArray());
+        
+        un=showInputDialog(outerPanel, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
-        while(!requestUsername(username)){
+        username.compareAndSet(null, un);
+        
+        while(!requestUsername(un)){
             if(currentError!=null)
                 showMessageDialog(outerPanel, currentError.getMessage());
             else
                 showMessageDialog(outerPanel, "Unidentified error requesting " + username);
 
-            username = showInputDialog(outerPanel, "Please try another username:");
+            un = showInputDialog(outerPanel, "Please try another username:");
         }
-
-        defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
-
-        chatRoom = new JPanel(new BorderLayout());
-//        chatRoom.setBorder(defaultPanelBorder);
-
-        chatNameList = new CheckBoxList(idToUsernameMap.values().toArray(), username);
+        
+        chatNameList.setUsername(username.get());
+        System.out.println("I have a username!!!" + username.get());
+        
+        
+        
+        idToUser.put(myID.get(), new User(myID.get(), username.get()));
+        
         nameScroller = new JScrollPane(chatNameList);
-
         chatLog = new JPanel(new GridLayout(0,1,2,2));
-//        chatLog.setMaximumSize(new Dimension(80, chatLog.getHeight()));
         chatLogScroller = new JScrollPane(chatLog);
-//        ((DefaultCaret)chatLog.getCaret()).setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
-
         sendButton = new JButton();
         sendButton.addActionListener(new ActionListener() {
             @Override
@@ -185,8 +228,8 @@ public class GroupThinkClient extends JFrame {
                 if(!chatNameList.allChecked()) {
                     for (String name : chatNameList.getCheckedItemNames()) {
                         int id = -13;
-                        for (Map.Entry<Integer, String> entry : idToUsernameMap.entrySet()) {
-                            if (entry.getValue().equalsIgnoreCase(name)) {
+                        for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
+                            if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
                                 id = entry.getKey();
                                 break;
                             }
@@ -197,11 +240,6 @@ public class GroupThinkClient extends JFrame {
                     }
                 } else{
                     sendTo.add(-1);
-                }
-
-                if(DEBUG){
-                    System.out.println("all checked? " + chatNameList.allChecked());
-                    System.out.println(sendTo);
                 }
 
                 if(!sendTo.isEmpty()){
@@ -265,9 +303,9 @@ public class GroupThinkClient extends JFrame {
         repoPanel = new JPanel(repoLayout); //TODO - populate this with icons representing files in the repo
         repoPanel.setMaximumSize(new Dimension(REPO_PANEL_MAX_WIDTH, this.getHeight()));
         repoScroller = new JScrollPane(repoPanel);
-
+        
         //try to generate some dummy repo files
-        if(DEBUG){
+        //if(DEBUG){
             Random rand = new Random();
             ArrayList<RepoDocument> dummyFiles = new ArrayList<RepoDocument>();
             for(int i=0;i<5;i++){
@@ -276,12 +314,15 @@ public class GroupThinkClient extends JFrame {
             for(RepoDocument d : dummyFiles){
                 repoPanel.add(d.getFileIcon());
             }
-        }
+        //}
 
         editor = new RSyntaxTextArea(20, 60);
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         editor.setCodeFoldingEnabled(true);
-
+        // <ANG>
+        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(new ChangeLogger(this));
+        // <\ANG>
+        
         rtsp = new RTextScrollPane(editor);
 
         innerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
@@ -295,33 +336,21 @@ public class GroupThinkClient extends JFrame {
         outerPanel.add(repoScroller, BorderLayout.EAST);
 
         setContentPane(outerPanel);
-
-        setTitle("GroupThink Client");
+        
+        setTitle("(" + username.get() + ") GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
-
-        setTitle("(" + username + ") GroupThink Client");
-        idToUsernameMap.put(myID, username);
         
-        Thread pt = new Thread(new PacketWorker());
-        pt.start();
-
-        Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
-        lt.start();
-
-        if(DEBUG){
-            //test sending chat message...
-            int[] i = {-1};
-            sendChatMessage("Hello, My Name Is " + username, i);
-        }
     }
 
     private void sendChatMessage(String message, int[] recipients){
         CMP cmp = null;
+        
         for(int i : recipients){
-            cmp = new CMP(i, (short)myID, message);
+            System.out.println("to " + i);
+            cmp = new CMP(i, (short)myID.get(), message);
             try {
                 UDPMultiCaster.sendPacket(cmp);
             } catch (IOException e) {
@@ -333,18 +362,22 @@ public class GroupThinkClient extends JFrame {
             }
         }
     }
-
+    
     public static void displayChatMessage(CMP p, boolean pm){
         String timeStamp = sdf.format(new Date());
         String message = "";
-        String name = p.getUserID() == myID? username : idToUsernameMap.get(p.getUserID());
+        
+        //System.out.println(idToUser.get(p.getUserID()));
+        
+        String name = p.getUserID() == myID.get()? username.get() : idToUser.get(p.getUserID()).getUsername();
+        //System.out.println("name is " + name);
         Color c = chatNameList.getUserColor(name);
         JLabel chatMessage = new JLabel();
         if(!pm){ //if this is NOT a private message...
             message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
         } else{
             chatMessage.setFont(chatMessage.getFont().deriveFont(Font.ITALIC));
-            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUsernameMap.get(p.getIntendedRecipient()), p.getMessage());
+            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
         }
 
         chatMessage.setText(message);
@@ -363,72 +396,66 @@ public class GroupThinkClient extends JFrame {
     }
 
     public static void addUser(String name, int id){
-        if(id != myID) {
-            idToUsernameMap.put(id, name);
+        if(id!=myID.get()){
+            idToUser.put(id, new User(id, name));
+            System.out.println("name is " + name);
+            //ynchronized(chatNameList){
             chatNameList.addName(name);
+            
+            
         }
+        
     }
-
+    
     public static void removeUser(int id){
-        if(id != myID){
-            chatNameList.removeName(idToUsernameMap.get(id));
-            idToUsernameMap.remove(id);
+        if(id != myID.get()){
+            if(idToUser.get(id)!=null){
+                chatNameList.removeName(idToUser.get(id).getUsername());
+                idToUser.remove(id);
+            }
         }
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
+     
         
-        GTPPacket request = new URP(un);
-        System.out.println(((URP)request).getUsername());
-        GTPPacket response=null;
-        byte[] rb=null;
-
-        try {
-            UDPMultiCaster.sendPacket(request);
-            
-            boolean retry=true;
-            
-            //retries until receipt of UCP or EP pertaining to the request
-            while(retry){
-                rb = UDPMultiCaster.receivePacket();
-                
-                int code = PacketSniffer.packetType(rb);
-                int recipient = PacketSniffer.intendedRecipient(rb);
-               
-                //if packet is for everyone, and is a valid UCP
-                if(recipient==-1 && code==PacketSniffer.OC_UCP){
-                    response = new UCP(rb);
-                    if(((UCP)response).getUsername().equals(un))
-                        retry=false;
-                }
-                //else if packet is for everyone, and is a valid EP with code 3 - <username> is unavailable
-                else if(recipient==-1 && code==PacketSniffer.OC_EP && PacketSniffer.errorCode(rb)==3){
-                    
-                    if(PacketSniffer.getErrorUsername(rb)!=null && PacketSniffer.getErrorUsername(rb).equals(un)){
-                        response = new EP(rb);
-                        currentError=(EP)response;
-                        System.out.println("Error Code "+ response);
-                        return false;
-                    }
-                }
-                
-                System.out.println("retrying");
-            }
-            myID=((UCP)response).getUserID();
-            System.out.println("Username confirmed ID = " + myID);
-            return true;
-        } catch (IOException ex) {
+        username.compareAndSet(username.get(), un);
+        
+        System.out.println("Requesting for " + username.get());
+        //send out request
+        try{
+            UDPMultiCaster.sendPacket(new URP(un));
+        }catch(IOException ex){
             ex.printStackTrace();
-        } catch (WrongPacketTypeException ex) {
-            //System.out.println(ex);
-            response = new EP(rb);
-            UDPMultiCaster.printBytes(response.getBytes());
-            currentError=(EP)response;
-            System.out.println("Error Code "+ response);
         }
-        return false;
+        
+        try{
+            synchronized(myID){
+                myID.wait(1000);
+            }
+        }catch(InterruptedException ex){
+            ex.printStackTrace();
+        }
+         
+        
+        System.out.println("Done waiting. " + myID.get());
+        
+        
+        if(myID.get()==-1){
+            myID.compareAndSet(-1, 0);
+            User me = new User(0, username.get());
+            me.setIsLeader(true);
+            idToUser.put(0, me);
+            leader.getAndSet(true);
+        }
+        
+        return true;
     }
+    
+    //========================================================================//
+    //                            PACKET SNIFFER                              //
+    //========================================================================//
     
     //class for examining received packets, without throwing exceptions
     static class PacketSniffer{
@@ -489,6 +516,9 @@ public class GroupThinkClient extends JFrame {
         
     }
     
+    //========================================================================//
+    //                             MULTICASTER                                //
+    //========================================================================//
     
     //class to handle most basic UDP communications
     static class UDPMultiCaster {
@@ -507,14 +537,14 @@ public class GroupThinkClient extends JFrame {
                 receiver = new MulticastSocket(myPort);
                 receiver.setReceiveBufferSize(57344);
                 receiver.setSendBufferSize(57344);
-                receiver.setSoTimeout(1000);
+                //receiver.setSoTimeout(1000); // Why?
                 inet = InetAddress.getByName(myHost);
                 receiver.joinGroup(inet);
                 
                 sender = new MulticastSocket();
                 sender.setReceiveBufferSize(57344);
                 sender.setSendBufferSize(57344);
-                sender.setSoTimeout(1000);
+                //sender.setSoTimeout(1000); // Why?
                 
             } catch (SocketException ex) {
                 ex.printStackTrace();
@@ -532,30 +562,22 @@ public class GroupThinkClient extends JFrame {
                 System.out.print(b[i] + "  ");
         }
 
-        //send a GTPPacket
+        // send a GTPPacket
         static void sendPacket(GTPPacket p) throws IOException, SocketTimeoutException{
-
             byte[] b = p.getBytes();
-
             DatagramPacket packet = new DatagramPacket(b, 0, b.length, inet, myPort);
             sender.send(packet);
-
         }
 
-        //recieve a byte array, (of an unspecified type of packet)
+        // recieve a byte array, (of an unspecified type of packet)
         static byte[] receivePacket() throws IOException, SocketTimeoutException{
-
             DatagramPacket recPack;
-
             byte[] recv = new byte[516];
-
             recPack = new DatagramPacket(recv, recv.length);
-            receiver.receive(recPack);
-
+            receiver.receive(recPack);  // blocks
             return recv;
-
         }
     }
-    
+
     
 }
