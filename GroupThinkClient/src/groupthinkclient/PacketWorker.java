@@ -71,7 +71,7 @@ public class PacketWorker implements Runnable {
     private void handleWCP(WCP wcp) {
         if (wcp.getUserID() != (short) GroupThinkClient.myID.get()) {
             System.out.println("=>RECEIVING PACKET!");
-            int position = wcp.getLineNumber();
+            int position = wcp.getPosition();
             String s = "" + wcp.getChar();
             synchronized (GroupThinkClient.editor) {
                 GroupThinkClient.logger.setActivation(false);
@@ -88,7 +88,7 @@ public class PacketWorker implements Runnable {
     private void handleDCP(DCP dcp) {
         if (dcp.getUserID() != (short) GroupThinkClient.myID.get()) {
             System.out.println("=>RECEIVING DELETE PACKET!");
-            int position = dcp.getLineNumber();
+            int position = dcp.getPosition();
             synchronized (GroupThinkClient.editor) {
                 GroupThinkClient.logger.setActivation(false);
                 try {

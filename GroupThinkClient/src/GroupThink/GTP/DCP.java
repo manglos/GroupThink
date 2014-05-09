@@ -5,14 +5,14 @@ import java.nio.ByteBuffer;
 
 public class DCP extends GTPPacket {
 
-    short userID, seqNumber, lineNumber, spaceNumber;
+    short userID, seqNumber;
+    int position;
 
-    public DCP(short ir, short user, short seq, short line, short space) {
+    public DCP(short ir, short user, short seq, int pos) {
         super(2, ir);
         userID = user;
         seqNumber = seq;
-        lineNumber = line;
-        spaceNumber = space;
+        position = pos;
         
         byte[] b = new byte[12];
 
@@ -48,22 +48,17 @@ public class DCP extends GTPPacket {
         b[6] = n[0];
         b[7] = n[1];
         
-        dbuf = ByteBuffer.allocate(2);
-        dbuf.putShort(lineNumber);
+        
+        dbuf = ByteBuffer.allocate(4);
+        dbuf.putInt(position);
         n = dbuf.array();
-
+        
         b[8] = n[0];
         b[9] = n[1];
-        
-        dbuf = ByteBuffer.allocate(2);
-        dbuf.putShort(spaceNumber);
-        n = dbuf.array();
-
-        b[10] = n[0];
-        b[11] = n[1];
+        b[10] = n[2];
+        b[11] = n[3];
         
         this.bytes = b;
-        
         setBytes();
     }
     
@@ -102,20 +97,14 @@ public class DCP extends GTPPacket {
         bb = ByteBuffer.wrap(sn);
         seqNumber = bb.getShort();
         
-        byte[] ln = new byte[2];
-        ln[0] = b[8];
-        ln[1] = b[9];
+        byte[] po = new byte[4];
+        po[0] = b[8];
+        po[1] = b[9];
+        po[2] = b[10];
+        po[3] = b[11];
         
-        bb = ByteBuffer.wrap(ln);
-        lineNumber = bb.getShort();
-        
-        byte[] spn = new byte[2];
-        spn[0] = b[10];
-        spn[1] = b[11];
-        
-        bb = ByteBuffer.wrap(spn);
-        spaceNumber = bb.getShort();
-        
+        bb = ByteBuffer.wrap(po);
+        position = bb.getInt();
 
         this.bytes=b;
         setBytes();
@@ -129,12 +118,8 @@ public class DCP extends GTPPacket {
         return seqNumber;
     }
 
-    public short getLineNumber() {
-        return lineNumber;
-    }
-    
-    public short getSpaceNumber() {
-        return spaceNumber;
+    public int getPosition() {
+        return position;
     }
     
     public void setBytes() {
