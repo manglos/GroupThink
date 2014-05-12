@@ -87,8 +87,9 @@ public class GroupThinkClient extends JFrame {
     public static ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
     public static ConcurrentLinkedQueue<LocalChange> lChange;     // list of local changes
     public static AtomicBoolean leader;                    // do you have the token?
-    public long highestSequentialChange = 0;               // global change counter
-    
+    public static long highestSequentialChange = 0;               // global change counter
+    public static int currentLeader;
+    public static TCP token;
 
     public static void main(String[] args) {
         // Multicaster to send packets:
@@ -131,7 +132,6 @@ public class GroupThinkClient extends JFrame {
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
-        
          this.addWindowListener(new WindowListener() {
             @Override public void windowOpened(WindowEvent e) {}
 
@@ -174,9 +174,14 @@ public class GroupThinkClient extends JFrame {
         
         nextUserID = new AtomicInteger(0);
         
+        currentLeader=-1;
+        
         username = new AtomicReference<String>(null);
         
         messages = new ArrayList<JLabel>();
+        
+        token = null;
+        
         String un="";
         
         // Load GUI Tools:
@@ -446,8 +451,10 @@ public class GroupThinkClient extends JFrame {
             myID.compareAndSet(-1, 0);
             User me = new User(0, username.get());
             me.setIsLeader(true);
+            currentLeader=0;
             idToUser.put(0, me);
             leader.getAndSet(true);
+            token = new TCP(0, 0, -1);
         }
         
         return true;

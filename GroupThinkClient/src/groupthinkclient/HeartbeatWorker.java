@@ -31,8 +31,9 @@ public class HeartbeatWorker implements Runnable {
             
 
             //First, send my own hearbeat to everyone
+
             try{
-                GroupThinkClient.UDPMultiCaster.sendPacket(new HP((short)GroupThinkClient.myID.get(), GroupThinkClient.leader.get()));
+                GroupThinkClient.UDPMultiCaster.sendPacket(new HP((short)GroupThinkClient.myID.get(), GroupThinkClient.leader.get(), GroupThinkClient.highestSequentialChange));
             }catch(IOException ex){
                 ex.printStackTrace();
             }

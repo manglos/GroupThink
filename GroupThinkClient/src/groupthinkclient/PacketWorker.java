@@ -49,6 +49,9 @@ public class PacketWorker implements Runnable {
                     case 9: // handle DATA (transmit entire document)
                         handleData((Data) packet);
                         break;
+                    case 11: // handle TRP (request for leadership)
+                        handleTRP((TRP)packet);
+                        break;
                     case 13: // handle HP (transmit entire document)
                         handleHP((HP) packet);
                         break;
@@ -197,6 +200,52 @@ public class PacketWorker implements Runnable {
     // Handler for heart beats
     private void handleHP(HP hp){
         setActive((int)hp.getUserID());
+        
+        //User thinks they're the leader
+        if(hp.isLeader()){
+            
+            System.out.println("Got packet from 'leader', checking it they have " + hp.getLogCount() + ", I have " + GroupThinkClient.highestSequentialChange);
+            //Wait a sec, I think I'm the leader!!!
+            if(GroupThinkClient.leader.get()){
+                
+                //I must be wrong
+                if(GroupThinkClient.highestSequentialChange<hp.getLogCount()){
+                    System.out.println("I was wrong...");
+                    GroupThinkClient.currentLeader=hp.getUserID();
+                    GroupThinkClient.leader.compareAndSet(true, false);
+                }
+                else{//User must be wrong
+                    System.out.println("They're wrong!!!");
+                    try {
+                        //Send a token request (don't care if I receive it)
+                        GroupThinkClient.UDPMultiCaster.sendPacket(new TRP(hp.getUserID(), GroupThinkClient.highestSequentialChange));
+                    } catch (IOException ex) {
+                        Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    private void handleTRP(TRP trp){
+        
+        //if i'm not the leader, I really don't care about this
+        if(!GroupThinkClient.leader.get())
+            return;
+        
+        //ONLY send a Token if our logCounts match
+        if(GroupThinkClient.highestSequentialChange==trp.getLogCount()){
+            try {
+                GroupThinkClient.UDPMultiCaster.sendPacket(GroupThinkClient.token);
+            } catch (IOException ex) {
+                Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        
+        //Otherwise, every client needs to update their global counts, 
+        //and can't get a token unless they're fully up-to-date
+        
     }
     
     private void setActive(int id){
