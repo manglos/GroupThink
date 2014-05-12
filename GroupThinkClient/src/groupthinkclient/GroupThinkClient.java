@@ -108,11 +108,7 @@ public class GroupThinkClient extends JFrame {
                             break;
                         }
                     }
-                } catch (ClassNotFoundException | 
-                         IllegalAccessException | 
-                         InstantiationException | 
-                         UnsupportedLookAndFeelException e
-                        ) {
+                } catch (Exception e) {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
                     e.printStackTrace();
                 }
