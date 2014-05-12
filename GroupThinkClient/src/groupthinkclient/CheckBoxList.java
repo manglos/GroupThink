@@ -55,6 +55,26 @@ public class CheckBoxList extends JList{
 
         setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
+    
+    public void setInactive(String name){
+        
+        int index = getUserIndex(name);
+        
+        //System.out.println("setting inactive... " + index);
+        if(index>=0){
+            ((JCheckBox)items.get(index)).setText("("+name+")");
+            setListData(items);
+        }
+    }
+    
+    public void setActive(String name){
+        int index = getUserIndex("("+name+")");
+        //System.out.println(index);
+        if(index>=0){
+            ((JCheckBox)items.get(index)).setText(name);
+            setListData(items);
+        }
+    }
 
     public Color getUserColor(String name){
         return nameToFontColorMap.get(name);
@@ -122,6 +142,19 @@ public class CheckBoxList extends JList{
         items.remove(name);
         nameToFontColorMap.remove(name);
         setListData(items);
+    }
+    
+    public int getUserIndex(String name){
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    return items.indexOf(b);
+                }
+            }
+        }
+        
+        return -1;
     }
 
     public void addName(String name){

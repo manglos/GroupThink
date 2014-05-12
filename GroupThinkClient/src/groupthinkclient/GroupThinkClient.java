@@ -76,7 +76,7 @@ public class GroupThinkClient extends JFrame {
     private JSplitPane innerSplitPane;
     private RTextScrollPane rtsp;
     static RSyntaxTextArea editor;
-    private static CheckBoxList chatNameList;
+    public static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
     private static SimpleDateFormat sdf;
     private static ArrayList<JLabel> messages;
@@ -190,6 +190,9 @@ public class GroupThinkClient extends JFrame {
         Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
         lt.start();
         chatNameList = new CheckBoxList(idToUser.values().toArray());
+        
+        Thread ht = new Thread(new HeartbeatWorker(ACTIVE_TIMEOUT));
+        ht.start();
         
         un=showInputDialog(outerPanel, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
