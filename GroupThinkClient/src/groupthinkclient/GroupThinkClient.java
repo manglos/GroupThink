@@ -1,14 +1,9 @@
 package groupthinkclient;
 
 import GroupThink.GTP.*;
-
 import java.awt.*;
 import java.awt.event.*;
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
@@ -16,6 +11,8 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,23 +24,23 @@ import javax.swing.*;
 
 import static javax.swing.JOptionPane.*;
 
-import javax.swing.UIManager.*;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.Border;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.text.Document;
 import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 public class GroupThinkClient extends JFrame {
+
+    //General Constants
+    private final String FILE_NAME = "file.gt";
     
     // Networking Constants
     private static final int PORT = 2606;
     private static final String HOSTNAME = "224.0.0.0";
-
+    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
+    
     // Networking Variables
     static DataOutputStream dos = null; // For writing to the socket
     static DataInputStream dis = null;  // For reading from the socket
@@ -62,50 +59,50 @@ public class GroupThinkClient extends JFrame {
     private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
     private final int GUI_WIDTH = 500;
     private final int GUI_HEIGHT = 300;
-    private final int REPO_PANEL_MAX_WIDTH = 30;
+//    private final int REPO_PANEL_MAX_WIDTH = 30;
     
     // GUI Variables
     public static AtomicReference<String> username;
     private JPanel chatRoom;
-    private JPanel chatRoomPanel;
+    private static JPanel chatRoomPanel;
     private JPanel inputPanel;
-    private JPanel repoPanel;
-    private JPanel outerPanel;
+    private JPanel topPanel;
+    private JPanel topContainerPanel;
+    private JPanel topButtonPanel;
     private JButton sendButton;
+    private JButton commitButton;
+    private JToggleButton observerToggle;
     private static JTextField messageField;
     private static JPanel chatLog;
     private static JScrollPane chatLogScroller;
-    private JScrollPane nameScroller;
-    private JScrollPane repoScroller;
-    private JSplitPane innerSplitPane;
+    private static JScrollPane nameScroller;
+    private JSplitPane splitPane;
     private RTextScrollPane rtsp;
     static RSyntaxTextArea editor;
     private static CheckBoxList chatNameList;
     private Border defaultPanelBorder;
     private static SimpleDateFormat sdf;
+    private static ArrayList<JLabel> messages;
+
+    //General Variables
+    public static AtomicBoolean observerMode = new AtomicBoolean(false);
     
     // Change / Synchronization Attributes:
-    private static String document = "";
-    private HashMap<Long, GlobalChange> gChanges;
-    private HashMap<Long, LocalChange> lChange;
-    public static AtomicBoolean leader;
-    private long highestSequentiaGChange;
-    public static final Long ACTIVE_TIMEOUT = 30*1000*1000*1000L; //30 seconds
-    
-    private static ArrayList<JLabel> messages;
-    
+    public static ChangeLogger logger;           // adds changes to logs
+    public HashMap<Long, GlobalChange> gChanges; // list of global changes
+    public HashMap<Long, LocalChange> lChange;   // list of local changes
+    public static AtomicBoolean leader;          // do you have the token?
+    public long highestSequentialChange = 0;     // global change counter
 
     public static void main(String[] args) {
         // Multicaster to send packets:
         UDPMultiCaster.initialize(PORT, HOSTNAME);
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
-        
-        
+
         // Start GUI:
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-
                 // Set the Look and Feel:
                 try {
                     for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
@@ -132,38 +129,23 @@ public class GroupThinkClient extends JFrame {
      * The GroupThinkClient constructor should only be called on the EDT...
      */
     public GroupThinkClient(){
-        
          this.addWindowListener(new WindowListener() {
             @Override public void windowOpened(WindowEvent e) {}
-
-            @Override public void windowClosing(WindowEvent e) {}
-
-            @Override
-            public void windowClosed(WindowEvent e) {
+            @Override public void windowClosing(WindowEvent e) {
                 boolean isLeader = false;
                 LOP lop = new LOP((short)myID.get(), isLeader);
-
+                try {
+                    UDPMultiCaster.sendPacket(lop);
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+                System.out.println("Window closing...");
             }
-
-            @Override
-            public void windowIconified(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowDeiconified(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowActivated(WindowEvent e) {
-
-            }
-
-            @Override
-            public void windowDeactivated(WindowEvent e) {
-
-            }
+            @Override public void windowClosed(WindowEvent e) {}
+            @Override public void windowIconified(WindowEvent e) {}
+            @Override public void windowDeiconified(WindowEvent e) {}
+            @Override public void windowActivated(WindowEvent e) {}
+            @Override public void windowDeactivated(WindowEvent e) {}
         });
         
         // Load Networking Tools:
@@ -193,21 +175,21 @@ public class GroupThinkClient extends JFrame {
         lt.start();
         chatNameList = new CheckBoxList(idToUser.values().toArray());
         
-        un=showInputDialog(outerPanel, "Please enter your requested username:",
+        un=showInputDialog(this, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
         username.compareAndSet(null, un);
         
         while(!requestUsername(un)){
             if(currentError!=null)
-                showMessageDialog(outerPanel, currentError.getMessage());
+                showMessageDialog(this, currentError.getMessage());
             else
-                showMessageDialog(outerPanel, "Unidentified error requesting " + username);
+                showMessageDialog(this, "Unidentified error requesting " + username);
 
-            un = showInputDialog(outerPanel, "Please try another username:");
+            un = showInputDialog(this, "Please try another username:");
         }
         
         chatNameList.setUsername(username.get());
-        System.out.println("I have a username!!!" + username.get());
+        System.out.println("I have a username!!! " + username.get());
         
         
         
@@ -246,7 +228,7 @@ public class GroupThinkClient extends JFrame {
                     sendChatMessage(messageField.getText(), ids);
                     sendButton.setText("");
                 } else{
-                    showMessageDialog(outerPanel, "Please select one or more recipients in order to send a message.");
+                    showMessageDialog(splitPane, "Please select one or more recipients in order to send a message.");
                 }
 
             }
@@ -277,6 +259,7 @@ public class GroupThinkClient extends JFrame {
                     public void keyTyped(KeyEvent e) {
                         if(e.getKeyChar() == KeyEvent.VK_ENTER){
                             sendButton.doClick();
+                            messageField.setText("");
                         }
                     }
                     @Override public void keyPressed(KeyEvent e) {}
@@ -294,44 +277,77 @@ public class GroupThinkClient extends JFrame {
         chatRoomPanel.add(nameScroller, BorderLayout.WEST);
         chatRoomPanel.add(chatRoom, BorderLayout.CENTER);
 
-        GridLayout repoLayout = new GridLayout(0, 1, 5, 0);
+        topPanel = new JPanel(new BorderLayout());
+        topButtonPanel = new JPanel();
 
-        repoPanel = new JPanel(repoLayout); //TODO - populate this with icons representing files in the repo
-        repoPanel.setMaximumSize(new Dimension(REPO_PANEL_MAX_WIDTH, this.getHeight()));
-        repoScroller = new JScrollPane(repoPanel);
-        
-        //try to generate some dummy repo files
-        //if(DEBUG){
-            Random rand = new Random();
-            ArrayList<RepoDocument> dummyFiles = new ArrayList<RepoDocument>();
-            for(int i=0;i<5;i++){
-                dummyFiles.add(new RepoDocument("File#"+(i+1), 2345l, System.currentTimeMillis()));
+        commitButton = new JButton("Commit");
+        observerToggle = new JToggleButton("Observer Mode");
+        observerToggle.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                AbstractButton abstractButton = (AbstractButton) e.getSource();
+                boolean selected = abstractButton.getModel().isSelected();
+                observerMode.compareAndSet(observerMode.get(), !observerMode.get());
+
+                if(selected){
+                    observerToggle.setForeground(Color.GREEN.darker());
+                } else{
+                    observerToggle.setForeground(Color.BLACK);
+                }
+
+                System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
             }
-            for(RepoDocument d : dummyFiles){
-                repoPanel.add(d.getFileIcon());
+        });
+        //TODO populate file details from file.gt
+        try {
+            System.out.println(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+            File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+            if(!gtFile.exists()){
+                gtFile.createNewFile();
             }
-        //}
+            BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
+
+            GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
+
+            topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        topButtonPanel.add(observerToggle);
+        topButtonPanel.add(commitButton);
+        topPanel.add(topButtonPanel, BorderLayout.EAST);
+
+        topContainerPanel = new JPanel(new BorderLayout());
+        topContainerPanel.add(topPanel, BorderLayout.NORTH);
 
         editor = new RSyntaxTextArea(20, 60);
+        editor.setCloseCurlyBraces(false);
+
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
-        editor.setCodeFoldingEnabled(true);
-        // <ANG>
-        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(new ChangeLogger(this));
+        editor.setCodeFoldingEnabled(false);
+        editor.setAutoIndentEnabled(false);
+        
+        // <ANG> register the change-logging document filter:
+        this.logger = new ChangeLogger(this);
+        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(logger);
         // <\ANG>
         
         rtsp = new RTextScrollPane(editor);
+        topContainerPanel.add(rtsp, BorderLayout.CENTER);
 
-        innerSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
-        outerPanel = new JPanel(new BorderLayout());
+        splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, SPLIT_PANE_DYN_UPDATE_ON_RESIZE);
+//        outerPanel = new JPanel(new BorderLayout());
 
-        innerSplitPane.setDividerLocation(0.5d); //TODO - is this doing anything??
-        innerSplitPane.setTopComponent(rtsp);
-        innerSplitPane.setBottomComponent(chatRoomPanel);
+        splitPane.setDividerLocation(0.5d); //TODO - is this doing anything??
+        splitPane.setTopComponent(topContainerPanel);
+        splitPane.setBottomComponent(chatRoomPanel);
 
-        outerPanel.add(innerSplitPane, BorderLayout.CENTER);
-        outerPanel.add(repoScroller, BorderLayout.EAST);
+//        outerPanel.add(splitPane, BorderLayout.CENTER);
+//        outerPanel.add(repoScroller, BorderLayout.EAST);
 
-        setContentPane(outerPanel);
+        setContentPane(splitPane);
         
         setTitle("(" + username.get() + ") GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
@@ -370,10 +386,10 @@ public class GroupThinkClient extends JFrame {
         Color c = chatNameList.getUserColor(name);
         JLabel chatMessage = new JLabel();
         if(!pm){ //if this is NOT a private message...
-            message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+            message = String.format("%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
         } else{
             chatMessage.setFont(chatMessage.getFont().deriveFont(Font.ITALIC));
-            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
+            message = String.format("%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
         }
 
         chatMessage.setText(message);
@@ -392,30 +408,49 @@ public class GroupThinkClient extends JFrame {
     }
 
     public static void addUser(String name, int id){
-        if(id!=myID.get()){
+        if(id!=myID.get() && !chatNameList.containsName(name)){
             idToUser.put(id, new User(id, name));
             System.out.println("name is " + name);
-            //ynchronized(chatNameList){
             chatNameList.addName(name);
-            
-            
+
+            if (chatLog!=null) {
+                JLabel logInMessage = new JLabel();
+                logInMessage.setFont(logInMessage.getFont().deriveFont(Font.ITALIC));
+                logInMessage.setForeground(Color.GREEN.darker());
+                String timeStamp = sdf.format(new Date());
+                String message = String.format("%s - %s %s", timeStamp, idToUser.get(id).getUsername(), "has logged in");
+                logInMessage.setText(message);
+                chatLog.add(logInMessage);
+                chatLogScroller.updateUI();
+                chatLogScroller.getViewport().setViewPosition(new Point(0, chatLog.getHeight()));
+                chatRoomPanel.updateUI();
+            }
         }
-        
     }
     
     public static void removeUser(int id){
+        System.out.println("Received a request to remove user: " + id + ", " + idToUser.get(id).getUsername());
         if(id != myID.get()){
             if(idToUser.get(id)!=null){
+                JLabel logOutMessage = new JLabel();
+                logOutMessage.setFont(logOutMessage.getFont().deriveFont(Font.ITALIC));
+                logOutMessage.setForeground(Color.RED.darker());
+                String timestamp = sdf.format(new Date());
+                String message = String.format("%s - %s %s", timestamp, idToUser.get(id).getUsername(), "has logged out");
+                logOutMessage.setText(message);
+                chatLog.add(logOutMessage);
+
                 chatNameList.removeName(idToUser.get(id).getUsername());
                 idToUser.remove(id);
+
+                chatLogScroller.updateUI();
+                chatLogScroller.getViewport().setViewPosition(new Point(0,chatLog.getHeight()));
             }
         }
     }
     
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
-     
-        
         username.compareAndSet(username.get(), un);
         
         System.out.println("Requesting for " + username.get());

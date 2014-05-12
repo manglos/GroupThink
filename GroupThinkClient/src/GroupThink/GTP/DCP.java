@@ -5,18 +5,16 @@ import java.nio.ByteBuffer;
 
 public class DCP extends GTPPacket {
 
-    short userID, seqNumber, lineNumber, spaceNumber;
-    char myChar;
+    short userID, seqNumber;
+    int position;
 
-    public DCP(short ir, short user, short seq, short line, short space, char c) {
+    public DCP(short ir, short user, short seq, int pos) {
         super(2, ir);
         userID = user;
         seqNumber = seq;
-        lineNumber = line;
-        spaceNumber = space;
-        myChar = c;
+        position = pos;
         
-        byte[] b = new byte[13];
+        byte[] b = new byte[12];
 
         short num = (short) super.opCode;
 
@@ -50,36 +48,24 @@ public class DCP extends GTPPacket {
         b[6] = n[0];
         b[7] = n[1];
         
-        dbuf = ByteBuffer.allocate(2);
-        dbuf.putShort(lineNumber);
+        
+        dbuf = ByteBuffer.allocate(4);
+        dbuf.putInt(position);
         n = dbuf.array();
-
+        
         b[8] = n[0];
         b[9] = n[1];
-        
-        dbuf = ByteBuffer.allocate(2);
-        dbuf.putShort(spaceNumber);
-        n = dbuf.array();
-
-        b[10] = n[0];
-        b[11] = n[1];
-        
-        dbuf = ByteBuffer.allocate(1);
-        dbuf.putChar(myChar);
-        n = dbuf.array();
-        
-        b[12] = n[0];
-        
+        b[10] = n[2];
+        b[11] = n[3];
         
         this.bytes = b;
-        
         setBytes();
     }
     
     public DCP(byte[] b) throws WrongPacketTypeException{
         super(b);
         
-        if(super.getOP()!=1){
+        if(super.getOP()!= 2){
             throw new WrongPacketTypeException("Not a valid DCP Packet");
         }
         
@@ -111,26 +97,14 @@ public class DCP extends GTPPacket {
         bb = ByteBuffer.wrap(sn);
         seqNumber = bb.getShort();
         
-        byte[] ln = new byte[2];
-        ln[0] = b[8];
-        ln[1] = b[9];
+        byte[] po = new byte[4];
+        po[0] = b[8];
+        po[1] = b[9];
+        po[2] = b[10];
+        po[3] = b[11];
         
-        bb = ByteBuffer.wrap(ln);
-        lineNumber = bb.getShort();
-        
-        byte[] spn = new byte[2];
-        spn[0] = b[10];
-        spn[1] = b[11];
-        
-        bb = ByteBuffer.wrap(spn);
-        spaceNumber = bb.getShort();
-        
-        byte[] ch = new byte[1];
-        ch[0] = b[12];
-        
-        bb = ByteBuffer.wrap(op);
-        myChar = bb.getChar();
-        
+        bb = ByteBuffer.wrap(po);
+        position = bb.getInt();
 
         this.bytes=b;
         setBytes();
@@ -144,16 +118,8 @@ public class DCP extends GTPPacket {
         return seqNumber;
     }
 
-    public short getLineNumber() {
-        return lineNumber;
-    }
-    
-    public short getSpaceNumber() {
-        return spaceNumber;
-    }
-    
-    public char getChar() {
-        return myChar;
+    public int getPosition() {
+        return position;
     }
     
     public void setBytes() {

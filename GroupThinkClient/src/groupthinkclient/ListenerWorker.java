@@ -22,7 +22,8 @@ public class ListenerWorker implements Runnable {
                 byte[] b = GroupThinkClient.UDPMultiCaster.receivePacket(); // blocks here
                 int type = GroupThinkClient.PacketSniffer.packetType(b);
                 int intendedUser = GroupThinkClient.PacketSniffer.intendedRecipient(b);
-
+                
+                // <ANG> To do: Also check if WE are the sender!!
                 if(intendedUser==-1 || intendedUser==GroupThinkClient.myID.get()){
                     try{
                         switch(type){
@@ -55,6 +56,9 @@ public class ListenerWorker implements Runnable {
                                 break;
                             case 13:
                                 GroupThinkClient.packetQueue.add(new HP(b));
+                                break;
+                            case 14:
+                                GroupThinkClient.packetQueue.add(new LOP(b));
                                 break;
                         }
                         synchronized (GroupThinkClient.packetQueue) {

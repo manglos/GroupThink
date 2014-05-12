@@ -58,7 +58,7 @@ public class LOP extends GTPPacket {
     public LOP(byte[] b) throws WrongPacketTypeException{
         super(b);
 
-        if(super.getOP()!=13){
+        if(super.getOP()!=14){
             throw new WrongPacketTypeException("Not a valid LOP Packet");
         }
 

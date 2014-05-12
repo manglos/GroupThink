@@ -119,7 +119,20 @@ public class CheckBoxList extends JList{
 
     public void removeName(String name){
         //TODO add code to remove names from the list
-        items.remove(name);
+        Component toRemove = null;
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    toRemove = c;
+                    break;
+                }
+            }
+        }
+        if(toRemove != null){
+            items.remove(toRemove);
+        }
+
         nameToFontColorMap.remove(name);
         setListData(items);
     }
@@ -143,6 +156,21 @@ public class CheckBoxList extends JList{
             setListData(items);
             nameToFontColorMap.put(name, UCG.getNextUserColor());
         }
+    }
+
+    public boolean containsName(String name){
+        boolean contains = false;
+
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    contains = true;
+                    break;
+                }
+            }
+        }
+        return contains;
     }
 
     protected class CellRenderer implements ListCellRenderer{

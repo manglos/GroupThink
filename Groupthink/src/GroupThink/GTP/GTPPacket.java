@@ -2,16 +2,16 @@ package GroupThink.GTP;
 
 import java.nio.ByteBuffer;
 
-public abstract class GTPPacket {
+public abstract class Packet {
 
     int opCode;
     byte[] bytes;
 
-    GTPPacket(int o) {
+    Packet(int o) {
         opCode = o;
     }
-
-    GTPPacket(byte[] b) {
+    
+    Packet(byte[] b) {
         byte[] op = new byte[2];
         op[0] = b[0];
         op[1] = b[1];
