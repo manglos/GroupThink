@@ -31,36 +31,37 @@ public class ChangeLogger extends DocumentFilter {
     public void setActivation(boolean active) {
         this.active = active;
     }
-    
+
     //-------------------------FILTER MEHTODS---------------------------------//
-    
     @Override
     // "Invoked prior to insertion of text into the specified Document."
     public void insertString(DocumentFilter.FilterBypass fb, int offset, String text,
             AttributeSet attr) throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            addGlobally((short) offset, text);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            addLocally(offset, text);
+        if (active) {
+            // if you are the leader, put the change in the global log and multicast
+            if (this.client.leader.get()) {
+                addGlobally((short) offset, text);
+            } // otherwise, buffer the change in the local log and request leadership
+            else {
+                addLocally(offset, text);
+            }
         }
         // display the change in the GUI 
         super.insertString(fb, offset, text, attr);
     }
-    
+
     @Override
     // "Invoked prior to removal of the specified region in the specified Document."
     public void replace(DocumentFilter.FilterBypass fb, int offset, int length, String text,
             AttributeSet attrs) throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            addGlobally(offset, text);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            addLocally(offset, text);
+        if (active) {
+            // if you are the leader, put the change in the global log and multicast
+            if (this.client.leader.get()) {
+                addGlobally(offset, text);
+            } // otherwise, buffer the change in the local log and request leadership
+            else {
+                addLocally(offset, text);
+            }
         }
         // display the change in the GUI 
         super.replace(fb, offset, length, text, attrs);
@@ -70,13 +71,14 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to replacing a region of text in the specified Document."
     public void remove(DocumentFilter.FilterBypass fb, int offset, int length)
             throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            removeGlobally(offset, length);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            removeLocally(offset, length);
+        if (active) {
+            // if you are the leader, put the change in the global log and multicast
+            if (this.client.leader.get()) {
+                removeGlobally(offset, length);
+            } // otherwise, buffer the change in the local log and request leadership
+            else {
+                removeLocally(offset, length);
+            }
         }
         // display the change in the GUI 
         super.remove(fb, offset, length);
@@ -103,6 +105,7 @@ public class ChangeLogger extends DocumentFilter {
 
     private void addLocally(int offset, String text) {
         // to do
+        
     }
     
     private void removeGlobally(int offset, int length) {

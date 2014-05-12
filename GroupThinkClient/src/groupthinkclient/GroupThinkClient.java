@@ -18,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -82,11 +83,11 @@ public class GroupThinkClient extends JFrame {
     private static ArrayList<JLabel> messages;
     
     // Change / Synchronization Attributes:
-    public static ChangeLogger logger;           // adds changes to logs
-    public HashMap<Long, GlobalChange> gChanges; // list of global changes
-    public HashMap<Long, LocalChange> lChange;   // list of local changes
-    public static AtomicBoolean leader;          // do you have the token?
-    public long highestSequentialChange = 0;     // global change counter
+    public static ChangeLogger logger;                     // adds changes to logs
+    public ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
+    public ConcurrentLinkedQueue<LocalChange> lChange;     // list of local changes
+    public static AtomicBoolean leader;                    // do you have the token?
+    public long highestSequentialChange = 0;               // global change counter
     
 
     public static void main(String[] args) {
