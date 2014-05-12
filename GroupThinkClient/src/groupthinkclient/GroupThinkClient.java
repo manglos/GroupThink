@@ -84,8 +84,8 @@ public class GroupThinkClient extends JFrame {
     
     // Change / Synchronization Attributes:
     public static ChangeLogger logger;                     // adds changes to logs
-    public ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
-    public ConcurrentLinkedQueue<LocalChange> lChange;     // list of local changes
+    public static ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
+    public static ConcurrentLinkedQueue<LocalChange> lChange;     // list of local changes
     public static AtomicBoolean leader;                    // do you have the token?
     public long highestSequentialChange = 0;               // global change counter
     

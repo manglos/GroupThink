@@ -86,6 +86,7 @@ public class ChangeLogger extends DocumentFilter {
 
     //-------------------------LOGGER MEHTODS---------------------------------//
 
+    
     private void addGlobally(int offset, String text) {
         WCP newPacket;
         short id = (short) client.myID.get();
