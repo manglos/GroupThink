@@ -10,7 +10,7 @@ public class URP extends GTPPacket {
     byte[] bytes;
 
     public URP(String un) {
-        super(5, 0);
+        super(5, -1);
         username = un;
         usernameBytes = username.getBytes();
         

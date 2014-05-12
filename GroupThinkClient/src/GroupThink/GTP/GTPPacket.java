@@ -42,7 +42,7 @@ public abstract class GTPPacket {
     abstract void setBytes();
 
     public String toString(){
-        return "(" + opCode+ "," + intendedRecipient+")";
+        return "(OpCode " + opCode+ ", IntendedRecipient " + intendedRecipient+")";
     }
 
 }

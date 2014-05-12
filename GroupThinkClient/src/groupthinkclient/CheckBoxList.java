@@ -24,36 +24,21 @@ public class CheckBoxList extends JList{
     protected static JLabel nameLabel;
     private static String clientName;
     private static HashMap<String, Color> nameToFontColorMap;
+    private static Object[] myItems;
 
-    public CheckBoxList(Object[] items, String name){
+    public CheckBoxList(Object[] items){
         UCG = new UserColorGenerator();
 
         nameToFontColorMap = new HashMap<String, Color>();
-        clientName = name;
+        myItems=items;
+        
         dflm = new DefaultListModel();
         setModel(dflm);
         CheckBoxList.items = new Vector<Component>();
 
+        
         //the first entry in the list should be a JLabel of the user's name
-        nameLabel = new JLabel();
-        nameLabel.setText("<html><b>" + clientName + "</b></html>");
-        nameLabel.setOpaque(true);
-        Color bg =  new Color(0, 0, 0);
-        Color fg =  new Color(255, 255, 255);
-        nameLabel.setBackground(bg);
-        nameLabel.setForeground(fg);
-        nameLabel.setHorizontalAlignment(JLabel.CENTER);
-
-
-        CheckBoxList.items.add(0, nameLabel);
-
-
-        for(Object o : items){
-            nameToFontColorMap.put(o.toString(), UCG.getNextUserColor());
-            JCheckBox box = new JCheckBox(o.toString());
-            CheckBoxList.items.add(new JCheckBox(o.toString()));
-        }
-        setListData(CheckBoxList.items.toArray());
+        
 
 
         setCellRenderer(new CellRenderer());
@@ -73,6 +58,33 @@ public class CheckBoxList extends JList{
 
     public Color getUserColor(String name){
         return nameToFontColorMap.get(name);
+    }
+    
+    public void setUsername(String un){
+        clientName=un;
+        
+        nameLabel = new JLabel();
+        nameLabel.setText("<html><b>" + clientName + "</b></html>");
+        nameLabel.setOpaque(true);
+        Color bg =  new Color(0, 0, 0);
+        Color fg =  new Color(255, 255, 255);
+        nameLabel.setBackground(bg);
+        nameLabel.setForeground(fg);
+        nameLabel.setHorizontalAlignment(JLabel.CENTER);
+
+
+        CheckBoxList.items.add(0, nameLabel);
+
+
+        for(Object o : myItems){
+            
+            if(!o.toString().equals(clientName)){
+                nameToFontColorMap.put(o.toString(), UCG.getNextUserColor());
+                JCheckBox box = new JCheckBox(o.toString());
+                CheckBoxList.items.add(new JCheckBox(o.toString()));
+            }
+        }
+        setListData(CheckBoxList.items.toArray());
     }
 
     public boolean allChecked(){
