@@ -82,7 +82,7 @@ public class GroupThinkClient extends JFrame {
     private static ArrayList<JLabel> messages;
     
     // Change / Synchronization Attributes:
-    public ChangeLogger logger;                  // adds changes to logs
+    public static ChangeLogger logger;           // adds changes to logs
     public HashMap<Long, GlobalChange> gChanges; // list of global changes
     public HashMap<Long, LocalChange> lChange;   // list of local changes
     public static AtomicBoolean leader;          // do you have the token?

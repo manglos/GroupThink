@@ -38,7 +38,6 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to insertion of text into the specified Document."
     public void insertString(DocumentFilter.FilterBypass fb, int offset, String text,
             AttributeSet attr) throws BadLocationException {
-        System.out.println("insert string " + text); // testing
         // if you are the leader, put the change in the global log and multicast
         if (this.client.leader.get()) {
             addGlobally((short) offset, text);
@@ -49,17 +48,15 @@ public class ChangeLogger extends DocumentFilter {
         }
         // display the change in the GUI 
         super.insertString(fb, offset, text, attr);
-        test(); // testing
     }
     
     @Override
     // "Invoked prior to removal of the specified region in the specified Document."
     public void replace(DocumentFilter.FilterBypass fb, int offset, int length, String text,
             AttributeSet attrs) throws BadLocationException {
-        System.out.println("replace " + text); // testing
         // if you are the leader, put the change in the global log and multicast
         if (this.client.leader.get()) {
-            addGlobally((short) offset, text);
+            addGlobally(offset, text);
         } 
         // otherwise, buffer the change in the local log and request leadership
         else {
@@ -67,14 +64,12 @@ public class ChangeLogger extends DocumentFilter {
         }
         // display the change in the GUI 
         super.replace(fb, offset, length, text, attrs);
-        test(); // testing
     }
 
     @Override
     // "Invoked prior to replacing a region of text in the specified Document."
     public void remove(DocumentFilter.FilterBypass fb, int offset, int length)
             throws BadLocationException {
-        System.out.println("remove"); // testing
         // if you are the leader, put the change in the global log and multicast
         if (this.client.leader.get()) {
             removeGlobally(offset, length);
@@ -85,19 +80,18 @@ public class ChangeLogger extends DocumentFilter {
         }
         // display the change in the GUI 
         super.remove(fb, offset, length);
-        test(); // testing
     }
 
     //-------------------------LOGGER MEHTODS---------------------------------//
 
-    private void addGlobally(short offset, String text) {
+    private void addGlobally(int offset, String text) {
         WCP newPacket;
         short id = (short) client.myID.get();
         for (int i=0; i<text.length(); i++) {
             try {
                 System.out.println("=>SENDING PACKET (" + text.charAt(i) + ")");
                 newPacket = new WCP((short) -1,(short) id, (short) 1, offset,
-                        (short) 0, text.charAt(i));
+                        text.charAt(i));
                 GroupThinkClient.UDPMultiCaster.sendPacket(newPacket);
             }
             catch (IOException ex) {
@@ -112,7 +106,19 @@ public class ChangeLogger extends DocumentFilter {
     }
     
     private void removeGlobally(int offset, int length) {
-        // to do
+        DCP newPacket;
+        short id = (short) client.myID.get();
+        for (int i=0; i<length; i++) {
+            try {
+                System.out.println("=>SENDING PACKET");
+                newPacket = new DCP((short) -1,(short) id, (short) 1, offset);
+                GroupThinkClient.UDPMultiCaster.sendPacket(newPacket);
+            }
+            catch (IOException ex) {
+                Logger.getLogger(ChangeLogger.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            // to do : add to global queue
+        }
     }
 
     private void removeLocally(int offset, int length) {
@@ -120,9 +126,4 @@ public class ChangeLogger extends DocumentFilter {
     }
     
     //--------------------------DEBUG MEHTODS---------------------------------//
-    
-    private void test() {
-        System.out.println("->ACTIVE:" + this.active);
-        System.out.println("->LEADER:" + this.client.leader.get());
-    }
 } 
