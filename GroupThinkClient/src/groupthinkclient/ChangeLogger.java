@@ -37,13 +37,13 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to insertion of text into the specified Document."
     public void insertString(DocumentFilter.FilterBypass fb, int offset, String text,
             AttributeSet attr) throws BadLocationException {
+        // If the user wrote it, add to the local queue
         if (active) {
-            // if you are the leader, put the change in the global log and multicast
-            if (this.client.leader.get()) {
-                addGlobally((short) offset, text);
-            } // otherwise, buffer the change in the local log and request leadership
-            else {
-                addLocally(offset, text);
+            for (int i = 0; i < text.length(); i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset, text.charAt(i)));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
             }
         }
         // display the change in the GUI 
@@ -54,13 +54,13 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to removal of the specified region in the specified Document."
     public void replace(DocumentFilter.FilterBypass fb, int offset, int length, String text,
             AttributeSet attrs) throws BadLocationException {
+        // If the user wrote it, add to the local queue
         if (active) {
-            // if you are the leader, put the change in the global log and multicast
-            if (this.client.leader.get()) {
-                addGlobally(offset, text);
-            } // otherwise, buffer the change in the local log and request leadership
-            else {
-                addLocally(offset, text);
+            for (int i = 0; i < text.length(); i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset, text.charAt(i)));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
             }
         }
         // display the change in the GUI 
@@ -71,20 +71,20 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to replacing a region of text in the specified Document."
     public void remove(DocumentFilter.FilterBypass fb, int offset, int length)
             throws BadLocationException {
+        // If the user wrote it, add to the local queue
         if (active) {
-            // if you are the leader, put the change in the global log and multicast
-            if (this.client.leader.get()) {
-                removeGlobally(offset, length);
-            } // otherwise, buffer the change in the local log and request leadership
-            else {
-                removeLocally(offset, length);
+            for (int i = 0; i < length; i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
             }
         }
         // display the change in the GUI 
         super.remove(fb, offset, length);
     }
 
-    //-------------------------LOGGER MEHTODS---------------------------------//
+    //------------OLD METHODS -- DO NOT USE (JUST FOR REFERENCE)--------------//
 
     
     private void addGlobally(int offset, String text) {
@@ -103,11 +103,6 @@ public class ChangeLogger extends DocumentFilter {
             // to do : add to global queue
         }
     }
-
-    private void addLocally(int offset, String text) {
-        // to do
-        
-    }
     
     private void removeGlobally(int offset, int length) {
         DCP newPacket;
@@ -123,10 +118,6 @@ public class ChangeLogger extends DocumentFilter {
             }
             // to do : add to global queue
         }
-    }
-
-    private void removeLocally(int offset, int length) {
-        // to do
     }
     
     //--------------------------DEBUG MEHTODS---------------------------------//

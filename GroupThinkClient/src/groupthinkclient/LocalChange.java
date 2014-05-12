@@ -1,7 +1,5 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Wrapper for information buffered in the local queue.
  */
 
 package groupthinkclient;
@@ -9,45 +7,21 @@ package groupthinkclient;
 //Just copied over from GlobalChange for my purposes, but
 //in which way is a LocalChange object different from a Global one?
 public class LocalChange {
-    private final long id;       // unique sequential id for the log
-    private int caretX;          // x-position of caret
-    private int caretY;          // y-position of caret
+    private final int position;
     private final char payload;  // the character being added or deleted
     private final boolean write; // write or delete?
     
-    public LocalChange(long id, int x, int y, char c, boolean write) {
-        this.id = id;
-        this.caretX = x;
-        this.caretY = y;
-        this.write = write;
-        this.payload = c;
+    // Constructor if it is a write (needs a char)
+    public LocalChange(int pos, char pl) {
+        position = pos;
+        payload = pl;
+        write = true;
     }
     
-    // offsets for a local delete/insert if this change occurs after:
-    public void offsetIfApplicable(int localX, int localY, int direction) {
-        if (effectedByLocalChange(localX, localY)) {
-            offsetX(direction); // +1 for write -1 for delete
-        }
+    // Constructor if it is a delete (does not need a char)
+    public LocalChange(int pos) {
+        position = pos;
+        payload = ' '; // should never be used
+        write = false;
     }
-    
-    // See if this character is effected by a local change:
-    public boolean effectedByLocalChange(int changeX, int changeY) {
-        return ((this.caretY > changeY) || ((this.caretY == changeY) && (this.caretX >= changeX)));
-    }
-    
-    // offset the caret x position if local changes effect it
-    public void offsetX(int xOffset) {
-        caretX += xOffset;
-    }
-    
-    // offset the caret y position if local changes effect it
-    public void offsetY(int yOffset) {
-        caretY += yOffset;
-    }
-    
-    // get this change's id:
-    public long getChangeID() {
-        return id;
-    }
-    
 }

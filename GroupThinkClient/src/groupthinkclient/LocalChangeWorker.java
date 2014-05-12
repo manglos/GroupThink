@@ -7,7 +7,7 @@ public class LocalChangeWorker implements Runnable{
         
         //wait for local change
         try {
-            GroupThinkClient.lChange.wait();
+            GroupThinkClient.lChanges.wait();
         } catch (InterruptedException ex) {
             ex.printStackTrace();
         }
@@ -18,7 +18,7 @@ public class LocalChangeWorker implements Runnable{
         if(GroupThinkClient.leader.get()){
             //For each local change in queue
             LocalChange lc;
-            while((lc = GroupThinkClient.lChange.poll())!=null){
+            while((lc = GroupThinkClient.lChanges.poll())!=null){
                 
                 //make global change
                 
