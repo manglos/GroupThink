@@ -25,6 +25,18 @@ public class LocalChange {
         write = false;
     }
     
+    public int getPosition(){
+        return position;
+    }
+    
+    public char getChar(){
+        return payload;
+    }
+    
+    public boolean isWrite(){
+        return write;
+    }
+    
     public String toString(){
         return "LocalChange (" + position + "," + payload + "," + write + ")";
     }

@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -84,7 +85,7 @@ public class GroupThinkClient extends JFrame {
     public static ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
     public static final ConcurrentLinkedQueue<LocalChange> lChanges = new ConcurrentLinkedQueue(); // list of local changes
     public static AtomicBoolean leader; // do you have the token?
-    public static long highestSequentialChange = 0; // global change counter
+    public static AtomicLong highestSequentialChange = new AtomicLong(0); // global change counter
     public static int currentLeader;
     public static TCP token;
 
@@ -156,6 +157,7 @@ public class GroupThinkClient extends JFrame {
         messages = new ArrayList<JLabel>();
         token = null;
         String un="";
+        gChanges = new ConcurrentHashMap<Long, GlobalChange>();
         
         // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");

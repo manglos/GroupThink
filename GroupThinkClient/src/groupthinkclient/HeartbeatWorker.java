@@ -32,12 +32,13 @@ public class HeartbeatWorker implements Runnable {
 
             //First, send my own hearbeat to everyone
 
-            try{
-                GroupThinkClient.UDPMultiCaster.sendPacket(new HP((short)GroupThinkClient.myID.get(), GroupThinkClient.leader.get(), GroupThinkClient.highestSequentialChange));
-            }catch(IOException ex){
-                ex.printStackTrace();
+            if(!GroupThinkClient.observerMode.get()){
+                try{
+                    GroupThinkClient.UDPMultiCaster.sendPacket(new HP((short)GroupThinkClient.myID.get(), GroupThinkClient.leader.get(), GroupThinkClient.highestSequentialChange.get()));
+                }catch(IOException ex){
+                    ex.printStackTrace();
+                }
             }
-
             //Next, iterate through my user map and decide if user is active or inactive
             Iterator<Map.Entry<Integer, User>> it = GroupThinkClient.idToUser.entrySet().iterator();
 

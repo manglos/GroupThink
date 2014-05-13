@@ -59,6 +59,9 @@ public class PacketWorker implements Runnable {
                     case 13: // handle HP (heartbeats)
                         handleHP((HP) packet);
                         break;
+                    case 14: // handle LOP (A user logged out)
+                        handleLOP((LOP) packet);
+                        break;
                     case 15: // handle GCP (Global Change Request)
                         handleGCP((GCP) packet);
                         break;
@@ -220,12 +223,12 @@ public class PacketWorker implements Runnable {
         //User thinks they're the leader
         if(hp.isLeader()){
             
-            System.out.println("Got packet from 'leader', checking it they have " + hp.getLogCount() + ", I have " + GroupThinkClient.highestSequentialChange);
+            System.out.println("Got packet from 'leader', checking it they have " + hp.getLogCount() + ", I have " + GroupThinkClient.highestSequentialChange.get());
             //Wait a sec, I think I'm the leader!!!
             if(GroupThinkClient.leader.get()){
                 
                 //I must be wrong
-                if(GroupThinkClient.highestSequentialChange<hp.getLogCount()){
+                if(GroupThinkClient.highestSequentialChange.get()<hp.getLogCount()){
                     System.out.println("I was wrong...");
                     GroupThinkClient.currentLeader=hp.getUserID();
                     GroupThinkClient.leader.compareAndSet(true, false);
@@ -234,7 +237,7 @@ public class PacketWorker implements Runnable {
                     System.out.println("They're wrong!!!");
                     try {
                         //Send a token request (don't care if I receive it)
-                        GroupThinkClient.UDPMultiCaster.sendPacket(new TRP(hp.getUserID(), GroupThinkClient.highestSequentialChange));
+                        GroupThinkClient.UDPMultiCaster.sendPacket(new TRP(hp.getUserID(), GroupThinkClient.highestSequentialChange.get()));
                     } catch (IOException ex) {
                         Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -251,7 +254,7 @@ public class PacketWorker implements Runnable {
             return;
         
         //ONLY send a Token if our logCounts match
-        if(GroupThinkClient.highestSequentialChange==trp.getLogCount()){
+        if(GroupThinkClient.highestSequentialChange.get()==trp.getLogCount()){
             try {
                 GroupThinkClient.token.changeRecipient(trp.getUserID());
                 GroupThinkClient.leader.compareAndSet(true,false);
@@ -271,7 +274,7 @@ public class PacketWorker implements Runnable {
             //Otherwise, every client needs to update their global counts,
             //and can't get a token unless they're fully up-to-date
             System.out.println("Rejecting Token Request");
-            GroupThinkClient.UDPMultiCaster.sendPacket(new TDP(trp.getUserID(), (short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange));
+            GroupThinkClient.UDPMultiCaster.sendPacket(new TDP(trp.getUserID(), (short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange.get()));
         } catch (IOException ex) {
             Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -293,6 +296,7 @@ public class PacketWorker implements Runnable {
     }
     
     private void handleGCP(GCP gcp){
+        //If i have the requested GlobalChange send it out
         if(GroupThinkClient.gChanges.containsKey(gcp.getGlobalIndex())){
             GlobalChange g = GroupThinkClient.gChanges.get(gcp.getGlobalIndex());
             GCC gcc = new GCC((short)gcp.getUserID(), (short)GroupThinkClient.myID.get(), gcp.getGlobalIndex(), g.getPosition(), g.getChar(), g.isWrite());
@@ -305,8 +309,11 @@ public class PacketWorker implements Runnable {
     }
     
     private void handleGCC(GCC gcc){
-        GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getPos(), gcc.getChar(), gcc.isWrite());
-        GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc);
+        //I got a GlobalChange, if I don't have that one, put it in the map
+        if(!GroupThinkClient.gChanges.containsKey(gcc.getGlobalIndex())){
+            GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getPos(), gcc.getChar(), gcc.isWrite());
+            GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc);  
+        }
     }
     
     private void handleTDP(TDP tdp){

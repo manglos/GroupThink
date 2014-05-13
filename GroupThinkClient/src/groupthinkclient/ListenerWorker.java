@@ -63,6 +63,9 @@ public class ListenerWorker implements Runnable {
                             case 13:
                                 GroupThinkClient.packetQueue.add(new HP(b));
                                 break;
+                            case 14:
+                                GroupThinkClient.packetQueue.add(new LOP(b));
+                                break;
                             case 15:
                                 GroupThinkClient.packetQueue.add(new GCP(b));
                                 break;

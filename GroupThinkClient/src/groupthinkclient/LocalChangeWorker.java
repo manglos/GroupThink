@@ -28,20 +28,21 @@ public class LocalChangeWorker implements Runnable{
                 //For each local change in queue
                 LocalChange lc;
                 while((lc = GroupThinkClient.lChanges.poll())!=null){
-                    //myLogger.addGlobally();       
+                    //myLogger.addGlobally();
+                    GlobalChange g = new GlobalChange(GroupThinkClient.highestSequentialChange.get(), lc);
+                    GroupThinkClient.gChanges.put(GroupThinkClient.highestSequentialChange.get(), g);
+                    GroupThinkClient.highestSequentialChange.getAndIncrement();
                     System.out.println(lc);
                 }
             }
             else{
                 try {
                     //request token
-                    GroupThinkClient.UDPMultiCaster.sendPacket(new TRP((short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange));
+                    GroupThinkClient.UDPMultiCaster.sendPacket(new TRP((short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange.get()));
                 } catch (IOException ex) {
                     Logger.getLogger(LocalChangeWorker.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
-        
-        
         }
     }
     

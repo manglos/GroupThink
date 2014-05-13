@@ -21,6 +21,13 @@ public class GlobalChange {
         this.write = write;
         this.payload = c;
     }
+    
+    public GlobalChange(long id, LocalChange lc){
+        this.id = id;
+        this.position = lc.getPosition();
+        this.payload = lc.getChar();
+        this.write = lc.isWrite();                
+    }
 
     public int getPosition(){
         return position;
