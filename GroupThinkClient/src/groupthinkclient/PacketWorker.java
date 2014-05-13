@@ -314,15 +314,17 @@ public class PacketWorker implements Runnable {
         
         ArrayList<Long> missing = new ArrayList<Long>();
         
+        //get index for each missing global change
         for(long i=0;i<tdp.getLeadersIndex();i++){
             if(!GroupThinkClient.gChanges.containsKey(i)){
                 missing.add(i);
             }
         }
         
+        //for each missing change, send out a request to everyone for that change
         for(long index : missing){
             try {
-                GroupThinkClient.UDPMultiCaster.sendPacket(new GCP(tdp.getUserID(), (short)GroupThinkClient.myID.get(), index));
+                GroupThinkClient.UDPMultiCaster.sendPacket(new GCP(-1, (short)GroupThinkClient.myID.get(), index));
             } catch (IOException ex) {
                 Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
             }
