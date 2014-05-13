@@ -55,6 +55,39 @@ public class CheckBoxList extends JList{
 
         setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
+    
+    public int getUserIndex(String name){
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    return items.indexOf(b);
+                }
+            }
+        }
+        
+        return -1;
+    }
+    
+    public void setInactive(String name){
+        
+        int index = getUserIndex(name);
+        
+        //System.out.println("setting inactive... " + index);
+        if(index>=0){
+            ((JCheckBox)items.get(index)).setText("("+name+")");
+            setListData(items);
+        }
+    }
+    
+    public void setActive(String name){
+        int index = getUserIndex("("+name+")");
+        //System.out.println(index);
+        if(index>=0){
+            ((JCheckBox)items.get(index)).setText(name);
+            setListData(items);
+        }
+    }
 
     public Color getUserColor(String name){
         return nameToFontColorMap.get(name);
@@ -119,7 +152,20 @@ public class CheckBoxList extends JList{
 
     public void removeName(String name){
         //TODO add code to remove names from the list
-        items.remove(name);
+        Component toRemove = null;
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    toRemove = c;
+                    break;
+                }
+            }
+        }
+        if(toRemove != null){
+            items.remove(toRemove);
+        }
+        
         nameToFontColorMap.remove(name);
         setListData(items);
     }
@@ -143,6 +189,21 @@ public class CheckBoxList extends JList{
             setListData(items);
             nameToFontColorMap.put(name, UCG.getNextUserColor());
         }
+    }
+
+    public boolean containsName(String name){
+        boolean contains = false;
+
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    contains = true;
+                    break;
+                }
+            }
+        }
+        return contains;
     }
 
     protected class CellRenderer implements ListCellRenderer{
