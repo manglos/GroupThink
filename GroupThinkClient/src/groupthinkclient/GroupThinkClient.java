@@ -57,30 +57,20 @@ public class GroupThinkClient extends JFrame {
 
     // Gui Constants
     private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
-    private final int GUI_WIDTH = 500;
-    private final int GUI_HEIGHT = 300;
-//    private final int REPO_PANEL_MAX_WIDTH = 30;
-    
+    private final int GUI_WIDTH = 500, GUI_HEIGHT = 300;
+
     // GUI Variables
     public static AtomicReference<String> username;
-    private JPanel chatRoom;
-    private static JPanel chatRoomPanel;
-    private JPanel inputPanel;
-    private JPanel topPanel;
-    private JPanel topContainerPanel;
-    private JPanel topButtonPanel;
-    private JButton sendButton;
-    private JButton commitButton;
+    private static JPanel chatRoomPanel, chatLog;
+    private JPanel chatRoom, inputPanel,topPanel, topContainerPanel, topButtonPanel;
+    private JButton sendButton, commitButton;
     private JToggleButton observerToggle;
     private static JTextField messageField;
-    private static JPanel chatLog;
-    private static JScrollPane chatLogScroller;
-    private static JScrollPane nameScroller;
+    private static JScrollPane chatLogScroller, nameScroller;
     private JSplitPane splitPane;
     private RTextScrollPane rtsp;
     static RSyntaxTextArea editor;
     private static CheckBoxList chatNameList;
-    private Border defaultPanelBorder;
     private static SimpleDateFormat sdf;
     private static ArrayList<JLabel> messages;
 
@@ -150,24 +140,17 @@ public class GroupThinkClient extends JFrame {
         
         // Load Networking Tools:
         idToUser = new ConcurrentHashMap<Integer, User>();
-        
         leader = new AtomicBoolean(false);
-        
         myID = new AtomicInteger(-1);
-        
         nextUserID = new AtomicInteger(0);
-        
         username = new AtomicReference<String>(null);
-        
         messages = new ArrayList<JLabel>();
         String un="";
         
         // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
-        defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
         chatRoom = new JPanel(new BorderLayout());
-        
-        
+
         Thread pt = new Thread(new PacketWorker());
         pt.start();
 
@@ -247,6 +230,7 @@ public class GroupThinkClient extends JFrame {
         topButtonPanel = new JPanel();
 
         commitButton = new JButton("Commit");
+        commitButton.addActionListener(getCommitButtonActionListener());
         observerToggle = new JToggleButton("Observer Mode");
         observerToggle.addActionListener(getObserverToggleActionListener());
 
@@ -316,11 +300,23 @@ public class GroupThinkClient extends JFrame {
 
                 if(selected){
                     observerToggle.setForeground(Color.GREEN.darker());
+                    editor.setEnabled(false);
                 } else{
                     observerToggle.setForeground(Color.BLACK);
+                    editor.setEnabled(true);
                 }
 
                 System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
+            }
+        };
+    }
+
+    //TODO - need to add functionality to the commit button
+    private ActionListener getCommitButtonActionListener(){
+        return new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
             }
         };
     }
@@ -445,7 +441,7 @@ public class GroupThinkClient extends JFrame {
                 idToUser.remove(id);
 
                 chatLogScroller.updateUI();
-                chatLogScroller.getViewport().setViewPosition(new Point(0,chatLog.getHeight()));
+                chatLogScroller.getViewport().setViewPosition(new Point(0, chatLog.getHeight()));
             }
         }
     }
