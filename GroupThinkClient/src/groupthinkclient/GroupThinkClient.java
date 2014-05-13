@@ -190,49 +190,15 @@ public class GroupThinkClient extends JFrame {
         
         chatNameList.setUsername(username.get());
         System.out.println("I have a username!!! " + username.get());
-        
-        
-        
+
         idToUser.put(myID.get(), new User(myID.get(), username.get()));
         
         nameScroller = new JScrollPane(chatNameList);
         chatLog = new JPanel(new GridLayout(0,1,2,2));
+        chatLog.setBackground(Color.WHITE);
         chatLogScroller = new JScrollPane(chatLog);
         sendButton = new JButton();
-        sendButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                ArrayList<Integer> sendTo = new ArrayList<Integer>();
-                if(!chatNameList.allChecked()) {
-                    for (String name : chatNameList.getCheckedItemNames()) {
-                        int id = -13;
-                        for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
-                            if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
-                                id = entry.getKey();
-                                break;
-                            }
-                        }
-                        if (id>0) {
-                            sendTo.add(id);
-                        }
-                    }
-                } else{
-                    sendTo.add(-1);
-                }
-
-                if(!sendTo.isEmpty()){
-                    int[] ids = new int[sendTo.size()];
-                    for(int i=0;i<sendTo.size();i++){
-                        ids[i] = sendTo.get(i);
-                    }
-                    sendChatMessage(messageField.getText(), ids);
-                    sendButton.setText("");
-                } else{
-                    showMessageDialog(splitPane, "Please select one or more recipients in order to send a message.");
-                }
-
-            }
-        });
+        sendButton.addActionListener(getSendButtonActionListener());
         try{
             Image img = ImageIO.read(getClass().getResource("send.jpg"));
             sendButton.setIcon(new ImageIcon(img));
@@ -282,22 +248,8 @@ public class GroupThinkClient extends JFrame {
 
         commitButton = new JButton("Commit");
         observerToggle = new JToggleButton("Observer Mode");
-        observerToggle.addActionListener(new ActionListener(){
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                AbstractButton abstractButton = (AbstractButton) e.getSource();
-                boolean selected = abstractButton.getModel().isSelected();
-                observerMode.compareAndSet(observerMode.get(), !observerMode.get());
+        observerToggle.addActionListener(getObserverToggleActionListener());
 
-                if(selected){
-                    observerToggle.setForeground(Color.GREEN.darker());
-                } else{
-                    observerToggle.setForeground(Color.BLACK);
-                }
-
-                System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
-            }
-        });
         //TODO populate file details from file.gt
         try {
             System.out.println(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
@@ -344,9 +296,6 @@ public class GroupThinkClient extends JFrame {
         splitPane.setTopComponent(topContainerPanel);
         splitPane.setBottomComponent(chatRoomPanel);
 
-//        outerPanel.add(splitPane, BorderLayout.CENTER);
-//        outerPanel.add(repoScroller, BorderLayout.EAST);
-
         setContentPane(splitPane);
         
         setTitle("(" + username.get() + ") GroupThink Client");
@@ -355,6 +304,62 @@ public class GroupThinkClient extends JFrame {
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
         
+    }
+
+    private ActionListener getObserverToggleActionListener(){
+        return new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                AbstractButton abstractButton = (AbstractButton) e.getSource();
+                boolean selected = abstractButton.getModel().isSelected();
+                observerMode.compareAndSet(observerMode.get(), !observerMode.get());
+
+                if(selected){
+                    observerToggle.setForeground(Color.GREEN.darker());
+                } else{
+                    observerToggle.setForeground(Color.BLACK);
+                }
+
+                System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
+            }
+        };
+    }
+
+    private ActionListener getSendButtonActionListener(){
+        return new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ArrayList<Integer> sendTo = new ArrayList<Integer>();
+                if(!chatNameList.allChecked()) {
+                    for (String name : chatNameList.getCheckedItemNames()) {
+                        int id = -13;
+                        for (Map.Entry<Integer, User> entry : idToUser.entrySet()) {
+                            if (entry.getValue().getUsername().equalsIgnoreCase(name)) {
+                                id = entry.getKey();
+                                break;
+                            }
+                        }
+                        if (id>0) {
+                            sendTo.add(id);
+                        }
+                    }
+                } else{
+                    sendTo.add(-1);
+                }
+
+                if(!sendTo.isEmpty()){
+                    int[] ids = new int[sendTo.size()];
+                    for(int i=0;i<sendTo.size();i++){
+                        ids[i] = sendTo.get(i);
+                    }
+                    sendChatMessage(messageField.getText(), ids);
+                } else{
+//                    showMessageDialog(splitPane, "Please select one or more recipients in order to send a message.");
+                    sendChatMessage(messageField.getText(), new int[]{-1});
+                }
+
+            }
+        };
     }
 
     private void sendChatMessage(String message, int[] recipients){
@@ -379,10 +384,7 @@ public class GroupThinkClient extends JFrame {
         String timeStamp = sdf.format(new Date());
         String message = "";
         
-        //System.out.println(idToUser.get(p.getUserID()));
-        
         String name = p.getUserID() == myID.get()? username.get() : idToUser.get(p.getUserID()).getUsername();
-        //System.out.println("name is " + name);
         Color c = chatNameList.getUserColor(name);
         JLabel chatMessage = new JLabel();
         if(!pm){ //if this is NOT a private message...
@@ -402,7 +404,6 @@ public class GroupThinkClient extends JFrame {
 
         chatLog.add(chatMessage);
         chatLogScroller.updateUI();
-//        Rectangle r = new Rectangle(0,chatLog.getHeight(),1,1);
         chatLogScroller.getViewport().setViewPosition(new Point(0,chatLog.getHeight()));
 
     }
