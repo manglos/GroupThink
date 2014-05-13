@@ -295,7 +295,7 @@ public class PacketWorker implements Runnable {
     private void handleGCP(GCP gcp){
         if(GroupThinkClient.gChanges.containsKey(gcp.getGlobalIndex())){
             GlobalChange g = GroupThinkClient.gChanges.get(gcp.getGlobalIndex());
-            GCC gcc = new GCC((short)gcp.getUserID(), (short)GroupThinkClient.myID.get(), gcp.getGlobalIndex(), (short)g.getXPos(), (short)g.getYPos(), g.getChar(), g.isWrite());
+            GCC gcc = new GCC((short)gcp.getUserID(), (short)GroupThinkClient.myID.get(), gcp.getGlobalIndex(), g.getPosition(), g.getChar(), g.isWrite());
             try {
                 GroupThinkClient.UDPMultiCaster.sendPacket(gcc);
             } catch (IOException ex) {
@@ -305,7 +305,7 @@ public class PacketWorker implements Runnable {
     }
     
     private void handleGCC(GCC gcc){
-        GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getXPos(), gcc.getYPos(), gcc.getChar(), gcc.isWrite());
+        GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getPos(), gcc.getChar(), gcc.isWrite());
         GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc);
     }
     
