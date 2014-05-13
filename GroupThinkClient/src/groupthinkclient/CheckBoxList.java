@@ -56,6 +56,19 @@ public class CheckBoxList extends JList{
         setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
     
+    public int getUserIndex(String name){
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    return items.indexOf(b);
+                }
+            }
+        }
+        
+        return -1;
+    }
+    
     public void setInactive(String name){
         
         int index = getUserIndex(name);
@@ -139,22 +152,22 @@ public class CheckBoxList extends JList{
 
     public void removeName(String name){
         //TODO add code to remove names from the list
-        items.remove(name);
-        nameToFontColorMap.remove(name);
-        setListData(items);
-    }
-    
-    public int getUserIndex(String name){
+        Component toRemove = null;
         for(Component c : items) {
             if (c instanceof JCheckBox) {
                 JCheckBox b = (JCheckBox) c;
                 if (b.getText().equalsIgnoreCase(name)) {
-                    return items.indexOf(b);
+                    toRemove = c;
+                    break;
                 }
             }
         }
+        if(toRemove != null){
+            items.remove(toRemove);
+        }
         
-        return -1;
+        nameToFontColorMap.remove(name);
+        setListData(items);
     }
 
     public void addName(String name){
@@ -176,6 +189,21 @@ public class CheckBoxList extends JList{
             setListData(items);
             nameToFontColorMap.put(name, UCG.getNextUserColor());
         }
+    }
+
+    public boolean containsName(String name){
+        boolean contains = false;
+
+        for(Component c : items) {
+            if (c instanceof JCheckBox) {
+                JCheckBox b = (JCheckBox) c;
+                if (b.getText().equalsIgnoreCase(name)) {
+                    contains = true;
+                    break;
+                }
+            }
+        }
+        return contains;
     }
 
     protected class CellRenderer implements ListCellRenderer{
