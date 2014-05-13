@@ -312,7 +312,9 @@ public class PacketWorker implements Runnable {
         //I got a GlobalChange, if I don't have that one, put it in the map
         if(!GroupThinkClient.gChanges.containsKey(gcc.getGlobalIndex())){
             GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getPos(), gcc.getChar(), gcc.isWrite());
-            GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc);  
+            GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc); 
+            GroupThinkClient.updateHighestSequentialChange();
+            System.out.println("my hsc is " + GroupThinkClient.highestSequentialChange.get());
         }
     }
     

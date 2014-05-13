@@ -308,6 +308,31 @@ public class GroupThinkClient extends JFrame {
         pack();
         
     }
+    
+    public static void updateHighestSequentialChange(){
+        ArrayList<Long> keys = new ArrayList<Long>(gChanges.keySet());
+        
+        Collections.sort(keys);
+        
+        for(long i=0;i<keys.size();i++){
+            System.out.println("CurrentKey is " + keys.get((int)i));
+            if(i==0 && keys.get(0)==null){
+                System.out.println("Setting to 0");
+                highestSequentialChange.compareAndSet(highestSequentialChange.get(), 0);
+                return;
+            }
+            else if(i>0){
+                if(keys.get((int)i)!=(keys.get((int)i-1) + 1)){
+                    System.out.println("Setting hgc to " + keys.get((int)i-1));
+                    highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i-1));
+                    return;
+                }
+                else
+                   highestSequentialChange.incrementAndGet();
+            }
+        }
+               
+    }
 
     private ActionListener getObserverToggleActionListener(){
         return new ActionListener(){

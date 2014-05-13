@@ -32,7 +32,7 @@ public class LocalChangeWorker implements Runnable{
                     GlobalChange g = new GlobalChange(GroupThinkClient.highestSequentialChange.get(), lc);
                     GroupThinkClient.gChanges.put(GroupThinkClient.highestSequentialChange.get(), g);
                     GroupThinkClient.highestSequentialChange.getAndIncrement();
-                    System.out.println(lc);
+                    System.out.println("ADDED LOCAL CHANGE TO GLOBAL " + lc);
                 }
             }
             else{
@@ -45,7 +45,4 @@ public class LocalChangeWorker implements Runnable{
             }
         }
     }
-    
-    
-    
 }
