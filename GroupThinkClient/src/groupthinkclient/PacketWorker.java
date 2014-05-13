@@ -314,7 +314,7 @@ public class PacketWorker implements Runnable {
             GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getPos(), gcc.getChar(), gcc.isWrite());
             GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc); 
             GroupThinkClient.updateHighestSequentialChange();
-            System.out.println("my hsc is " + GroupThinkClient.highestSequentialChange.get());
+            //System.out.println("my hsc is " + GroupThinkClient.highestSequentialChange.get());
         }
     }
     
@@ -344,5 +344,10 @@ public class PacketWorker implements Runnable {
     public void handleTCP(TCP tcp){
         GroupThinkClient.token = tcp;
         GroupThinkClient.leader.compareAndSet(false, true);
+        
+        //this is to immediately broadcast pending changes and not wait until you type another key
+        synchronized(GroupThinkClient.lChanges){
+            GroupThinkClient.lChanges.notifyAll();
+        }
     }
 }

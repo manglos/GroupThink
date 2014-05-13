@@ -1,5 +1,6 @@
 package groupthinkclient;
 
+import GroupThink.GTP.GCC;
 import GroupThink.GTP.TRP;
 import GroupThink.GTP.WCP;
 import java.io.IOException;
@@ -29,10 +30,17 @@ public class LocalChangeWorker implements Runnable{
                 LocalChange lc;
                 while((lc = GroupThinkClient.lChanges.poll())!=null){
                     //myLogger.addGlobally();
-                    GlobalChange g = new GlobalChange(GroupThinkClient.highestSequentialChange.get(), lc);
+                    GlobalChange g = new GlobalChange(GroupThinkClient.highestSequentialChange.incrementAndGet(), lc);
                     GroupThinkClient.gChanges.put(GroupThinkClient.highestSequentialChange.get(), g);
-                    GroupThinkClient.highestSequentialChange.getAndIncrement();
+                    //GlobalChange g = GroupThinkClient.gChanges.get(gcp.getGlobalIndex());
+                    GCC gcc = new GCC((short)-1, (short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange.get(), g.getPosition(), g.getChar(), g.isWrite());
+                    try {
+                        GroupThinkClient.UDPMultiCaster.sendPacket(gcc);
+                    } catch (IOException ex) {
+                        Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                     System.out.println("ADDED LOCAL CHANGE TO GLOBAL " + lc);
+                    
                 }
             }
             else{

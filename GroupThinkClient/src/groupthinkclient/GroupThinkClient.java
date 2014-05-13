@@ -85,7 +85,7 @@ public class GroupThinkClient extends JFrame {
     public static ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
     public static final ConcurrentLinkedQueue<LocalChange> lChanges = new ConcurrentLinkedQueue(); // list of local changes
     public static AtomicBoolean leader; // do you have the token?
-    public static AtomicLong highestSequentialChange = new AtomicLong(0); // global change counter
+    public static AtomicLong highestSequentialChange = new AtomicLong(-1); // global change counter
     public static int currentLeader;
     public static TCP token;
 
@@ -314,22 +314,25 @@ public class GroupThinkClient extends JFrame {
         
         Collections.sort(keys);
         
+        for(long l : keys)
+            //System.out.println(l);
+        
         for(long i=0;i<keys.size();i++){
-            System.out.println("CurrentKey is " + keys.get((int)i));
-            if(i==0 && keys.get(0)==null){
-                System.out.println("Setting to 0");
-                highestSequentialChange.compareAndSet(highestSequentialChange.get(), 0);
+            //System.out.println("CurrentKey is " + keys.get((int)i));
+            
+            if(keys.get(0)!=null){
+                if(highestSequentialChange.compareAndSet(-1, 0))
+                    return;
+            }
+            
+            if(i>0 && keys.get((int)i)!=(keys.get((int)i-1) + 1)){
+                //System.out.println("Setting hgc to " + keys.get((int)i-1));
+                highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i-1));
                 return;
             }
-            else if(i>0){
-                if(keys.get((int)i)!=(keys.get((int)i-1) + 1)){
-                    System.out.println("Setting hgc to " + keys.get((int)i-1));
-                    highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i-1));
-                    return;
-                }
-                else
-                   highestSequentialChange.incrementAndGet();
-            }
+            else
+               highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i));
+
         }
                
     }
