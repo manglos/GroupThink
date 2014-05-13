@@ -24,6 +24,8 @@ public class GlobalChange {
         this.payload = c;
     }
     
+    
+    
     // offsets for a local delete/insert if this change occurs after:
     public void offsetIfApplicable(int localX, int localY, int direction) {
         if (effectedByLocalChange(localX, localY)) {
@@ -44,6 +46,22 @@ public class GlobalChange {
     // offset the caret y position if local changes effect it
     public void offsetY(int yOffset) {
         caretY += yOffset;
+    }
+    
+    public int getXPos(){
+        return caretX;
+    }
+    
+    public int getYPos(){
+        return caretY;
+    }
+    
+    public char getChar(){
+        return payload;
+    }
+    
+    public boolean isWrite(){
+        return write;
     }
     
     // get this change's id:

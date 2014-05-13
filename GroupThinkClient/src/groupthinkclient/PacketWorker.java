@@ -3,6 +3,7 @@ package groupthinkclient;
 import GroupThink.GTP.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.BadLocationException;
@@ -52,8 +53,20 @@ public class PacketWorker implements Runnable {
                     case 11: // handle TRP (request for leadership)
                         handleTRP((TRP)packet);
                         break;
-                    case 13: // handle HP (transmit entire document)
+                    case 12: // handle TCP (Confirm Leadership)
+                        handleTCP((TCP)packet);
+                        break;
+                    case 13: // handle HP (heartbeats)
                         handleHP((HP) packet);
+                        break;
+                    case 15: // handle GCP (Global Change Request)
+                        handleGCP((GCP) packet);
+                        break;
+                    case 16: // handle GCC (Global Change Packet)
+                        handleGCC((GCC) packet);
+                        break;
+                    case 17: // handle TDP (Token Declined)
+                        handleTDP((TDP) packet);
                         break;
                 }
             } 
@@ -201,6 +214,9 @@ public class PacketWorker implements Runnable {
     private void handleHP(HP hp){
         setActive((int)hp.getUserID());
         
+        if(hp.getUserID()==GroupThinkClient.myID.get())
+            return;
+        
         //User thinks they're the leader
         if(hp.isLeader()){
             
@@ -237,14 +253,28 @@ public class PacketWorker implements Runnable {
         //ONLY send a Token if our logCounts match
         if(GroupThinkClient.highestSequentialChange==trp.getLogCount()){
             try {
-                GroupThinkClient.UDPMultiCaster.sendPacket(GroupThinkClient.token);
+                GroupThinkClient.token.changeRecipient(trp.getUserID());
+                GroupThinkClient.leader.compareAndSet(true,false);
+                TCP t = GroupThinkClient.token;
+                GroupThinkClient.token=null;
+                //System.out.println("Sending Token " + GroupThinkClient.token);
+                GroupThinkClient.UDPMultiCaster.sendPacket(t);
+                //System.out.println("Sent.");
+                //GroupThinkClient.UDPMultiCaster.printBytes(GroupThinkClient.token.getBytes());
+                return;
             } catch (IOException ex) {
                 Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
         
-        //Otherwise, every client needs to update their global counts, 
-        //and can't get a token unless they're fully up-to-date
+        try {
+            //Otherwise, every client needs to update their global counts,
+            //and can't get a token unless they're fully up-to-date
+            System.out.println("Rejecting Token Request");
+            GroupThinkClient.UDPMultiCaster.sendPacket(new TDP(trp.getUserID(), (short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange));
+        } catch (IOException ex) {
+            Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+        }
         
     }
     
@@ -260,5 +290,48 @@ public class PacketWorker implements Runnable {
     private void handleLOP(LOP p){
         GroupThinkClient.removeUser(p.getUserID());
         //TODO handle the case of the leader logging out...
+    }
+    
+    private void handleGCP(GCP gcp){
+        if(GroupThinkClient.gChanges.containsKey(gcp.getGlobalIndex())){
+            GlobalChange g = GroupThinkClient.gChanges.get(gcp.getGlobalIndex());
+            GCC gcc = new GCC((short)gcp.getUserID(), (short)GroupThinkClient.myID.get(), gcp.getGlobalIndex(), (short)g.getXPos(), (short)g.getYPos(), g.getChar(), g.isWrite());
+            try {
+                GroupThinkClient.UDPMultiCaster.sendPacket(gcc);
+            } catch (IOException ex) {
+                Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+    
+    private void handleGCC(GCC gcc){
+        GlobalChange gc = new GlobalChange(gcc.getGlobalIndex(), gcc.getXPos(), gcc.getYPos(), gcc.getChar(), gcc.isWrite());
+        GroupThinkClient.gChanges.put(gcc.getGlobalIndex(), gc);
+    }
+    
+    private void handleTDP(TDP tdp){
+        Iterator it = GroupThinkClient.gChanges.entrySet().iterator();
+        
+        ArrayList<Long> missing = new ArrayList<Long>();
+        
+        for(long i=0;i<tdp.getLeadersIndex();i++){
+            if(!GroupThinkClient.gChanges.containsKey(i)){
+                missing.add(i);
+            }
+        }
+        
+        for(long index : missing){
+            try {
+                GroupThinkClient.UDPMultiCaster.sendPacket(new GCP(tdp.getUserID(), (short)GroupThinkClient.myID.get(), index));
+            } catch (IOException ex) {
+                Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        
+    }
+    
+    public void handleTCP(TCP tcp){
+        GroupThinkClient.token = tcp;
+        GroupThinkClient.leader.compareAndSet(false, true);
     }
 }

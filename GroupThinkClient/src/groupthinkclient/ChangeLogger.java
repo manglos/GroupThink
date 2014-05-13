@@ -87,7 +87,7 @@ public class ChangeLogger extends DocumentFilter {
     //------------OLD METHODS -- DO NOT USE (JUST FOR REFERENCE)--------------//
 
     
-    private void addGlobally(int offset, String text) {
+    public void addGlobally(int offset, String text) {
         WCP newPacket;
         short id = (short) client.myID.get();
         for (int i=0; i<text.length(); i++) {

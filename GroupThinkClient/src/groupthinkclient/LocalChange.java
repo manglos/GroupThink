@@ -24,4 +24,8 @@ public class LocalChange {
         payload = ' '; // should never be used
         write = false;
     }
+    
+    public String toString(){
+        return "LocalChange (" + position + "," + payload + "," + write + ")";
+    }
 }

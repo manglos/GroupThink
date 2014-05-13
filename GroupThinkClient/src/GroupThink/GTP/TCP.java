@@ -9,7 +9,11 @@ public class TCP extends GTPPacket {
     int logCount;
     int[] queue;
 
-    public TCP(int ir, int lc, int... q) {
+    public TCP(int ir, int lc){
+        this(ir, lc, null);
+    }
+    
+    public TCP(int ir, int lc, int[] q) {
         super(12, ir);
         logCount = lc;
         queue=q;
@@ -40,12 +44,14 @@ public class TCP extends GTPPacket {
         b[4] = cBytes[0];
         b[5] = cBytes[1];
 
-        for(int i=0;i<queue.length;i++){
-            dbuf = ByteBuffer.allocate(2);
-            dbuf.putShort((short)queue[i]);
-            byte[] qb = dbuf.array();
-            b[(2*i)+6] = qb[0];
-            b[(2*i)+7] = qb[1];
+        if(queue!=null){
+            for(int i=0;i<queue.length;i++){
+                dbuf = ByteBuffer.allocate(2);
+                dbuf.putShort((short)queue[i]);
+                byte[] qb = dbuf.array();
+                b[(2*i)+6] = qb[0];
+                b[(2*i)+7] = qb[1];
+            }
         }
         
         b[b.length-1] = -1;
@@ -85,17 +91,22 @@ public class TCP extends GTPPacket {
                 stopIndex=i;
         }
         
+        
         int userCount=0;
         queue = new int[(stopIndex-6)/2];
         
-        for(int i=6;i<stopIndex;i+=2){
-            byte[] ub = new byte[2];
-            ub[0] = b[i];
-            ub[1] = b[i+1];
+        if(queue.length>0){
+            for(int i=6;i<stopIndex;i+=2){
+                byte[] ub = new byte[2];
+                ub[0] = b[i];
+                ub[1] = b[i+1];
 
-            bb = ByteBuffer.wrap(ub);
-            queue[userCount++] = (int)bb.getShort();
+                bb = ByteBuffer.wrap(ub);
+                queue[userCount++] = (int)bb.getShort();
+            }
         }
+        else
+            queue=null;
         
 
         this.bytes=b;
@@ -139,12 +150,14 @@ public class TCP extends GTPPacket {
         b[4] = cBytes[0];
         b[5] = cBytes[1];
 
-        for(int i=0;i<queue.length;i++){
-            dbuf = ByteBuffer.allocate(2);
-            dbuf.putShort((short)queue[i]);
-            byte[] qb = dbuf.array();
-            b[(2*i)+6] = qb[0];
-            b[(2*i)+7] = qb[1];
+        if(queue!=null){
+            for(int i=0;i<queue.length;i++){
+                dbuf = ByteBuffer.allocate(2);
+                dbuf.putShort((short)queue[i]);
+                byte[] qb = dbuf.array();
+                b[(2*i)+6] = qb[0];
+                b[(2*i)+7] = qb[1];
+            }
         }
         
         b[b.length-1] = -1;
@@ -160,7 +173,11 @@ public class TCP extends GTPPacket {
     }
 
     public int calcBytesLength() {
-        return 6 + (2*queue.length) + 1;
+        if(queue!=null){
+            return 6 + (2*queue.length) + 1;
+        }
+        else
+            return 7;
     }
 
     public void setBytes() {//https://github.com/manglos/GroupThink.git
@@ -171,14 +188,31 @@ public class TCP extends GTPPacket {
         return super.bytes;
     }
     
+    public void changeRecipient(int ui){
+        super.intendedRecipient = ui;
+        
+        ByteBuffer dbuf = ByteBuffer.allocate(2);
+        dbuf.putShort((short)super.intendedRecipient);
+        byte[] n = dbuf.array();
+
+        super.bytes[2] = n[0];
+        super.bytes[3] = n[1];
+    }
+    
     @Override
     public String toString(){
-        String q="(" + queue[0];
         
-        for(int i=1;i<queue.length;i++)
-            q+=","+queue[i];
+        String q="()";
         
-        q+=")";
+        if(queue!=null){
+            q ="(" + queue[0];
+    
+
+            for(int i=1;i<queue.length;i++)
+                q+=","+queue[i];
+
+            q+=")";
+        }
         
         return "TCP: LogCount " + getLogCount()+ " Queue " + q + " " + super.toString();
     }

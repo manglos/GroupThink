@@ -190,6 +190,16 @@ public class GroupThinkClient extends JFrame {
         chatRoom = new JPanel(new BorderLayout());
         
         
+        editor = new RSyntaxTextArea(20, 60);
+        editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
+        editor.setCodeFoldingEnabled(true);
+        
+        // <ANG> register the change-logging document filter:
+        this.logger = new ChangeLogger(this);
+        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(logger);
+        // <\ANG>
+        
+        
         Thread pt = new Thread(new PacketWorker());
         pt.start();
 
@@ -199,6 +209,9 @@ public class GroupThinkClient extends JFrame {
         
         Thread ht = new Thread(new HeartbeatWorker(ACTIVE_TIMEOUT));
         ht.start();
+        
+        Thread lct = new Thread(new LocalChangeWorker());
+        lct.start();
         
         un=showInputDialog(outerPanel, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
@@ -319,14 +332,8 @@ public class GroupThinkClient extends JFrame {
             }
         //}
 
-        editor = new RSyntaxTextArea(20, 60);
-        editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
-        editor.setCodeFoldingEnabled(true);
         
-        // <ANG> register the change-logging document filter:
-        this.logger = new ChangeLogger(this);
-        ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(logger);
-        // <\ANG>
+        
         
         rtsp = new RTextScrollPane(editor);
 
@@ -454,7 +461,9 @@ public class GroupThinkClient extends JFrame {
             currentLeader=0;
             idToUser.put(0, me);
             leader.getAndSet(true);
-            token = new TCP(0, 0, -1);
+            token = new TCP(0, 0);
+            System.out.println(token);
+            UDPMultiCaster.printBytes(token.getBytes());
         }
         
         return true;
