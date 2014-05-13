@@ -66,6 +66,20 @@ public class GTFile {
 
     public JLabel getFileIcon(){
         JLabel label;
+//        Border b = BorderFactory.createLineBorder(Color.black);
+//        try{
+//            ImageIcon img = new ImageIcon("doc2.png");
+//            icon = new JLabel(getMetaDataHTML(), img, SwingConstants.CENTER);
+//        } catch (IOException ioe){
+//            ioe.printStackTrace();
+//            icon = new JLabel(getMetaDataHTML(), SwingConstants.CENTER);
+//        }
+//
+//        icon.setHorizontalAlignment(SwingConstants.CENTER);
+//        icon.setHorizontalTextPosition(SwingConstants.CENTER);
+//        icon = new JLabel(getMetaDataHTML(), SwingConstants.CENTER);
+//        icon.setBorder(b);
+
         try {
             Image img = ImageIO.read(getClass().getResource("doc.png"));
             ImageIcon imgIcon = new ImageIcon(img);

@@ -359,7 +359,26 @@ public class GroupThinkClient extends JFrame {
         return new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
+                //First, do all the hard commit-y stuff...
 
+
+                //Lastly, update the file data in the GUI...
+                try {
+                    File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+                    if(!gtFile.exists()){
+                        gtFile.createNewFile();
+                    }
+                    BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
+
+                    GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
+
+                    topPanel.remove(((BorderLayout)topPanel.getLayout()).getLayoutComponent(BorderLayout.WEST));
+                    topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
+                    topPanel.updateUI();
+
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
             }
         };
     }
