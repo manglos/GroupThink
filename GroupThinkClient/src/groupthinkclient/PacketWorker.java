@@ -3,12 +3,16 @@ package groupthinkclient;
 import GroupThink.GTP.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.BadLocationException;
 
 public class PacketWorker implements Runnable {
+    private Long transientGlobalChangeCount = 0l; //Do NOT rely on this to be correct!
+    private HashMap<Integer, Boolean> userIdToVoteMap = new HashMap<Integer, Boolean>();
 
     public PacketWorker(){}
 
@@ -131,7 +135,10 @@ public class PacketWorker implements Runnable {
     }
 
     private void handleCVP(CVP cvp) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+//        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        //only listen for CVPs if I'm the leader
+
+        GroupThinkClient.voteCount.incrementAndGet();
     }
 
     private void handleURP(URP urp) {
@@ -228,6 +235,9 @@ public class PacketWorker implements Runnable {
         
         //User thinks they're the leader
         if(hp.isLeader()){
+            if(hp.getLogCount() > transientGlobalChangeCount){
+                transientGlobalChangeCount = hp.getLogCount();
+            }
             
             System.out.println("Got packet from 'leader', checking it they have " + hp.getLogCount() + ", I have " + GroupThinkClient.highestSequentialChange.get());
             //Wait a sec, I think I'm the leader!!!
@@ -364,15 +374,33 @@ public class PacketWorker implements Runnable {
         * - show the vote dialog
         */
 
+        //disable editing!
         GroupThinkClient.setEnableEditing(false);
 
-        //send out a TRP in order to make sure I'm up to date
-        try {
-            GroupThinkClient.UDPMultiCaster.sendPacket(new TRP((short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange.get()));
-        } catch (IOException ex) {
-            Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+        if(crp.getUserID()==GroupThinkClient.myID.get()){
+            GroupThinkClient.voteCount = new AtomicInteger(0);
+            Thread ct = new Thread(new CommitWorker());
+            ct.start();
         }
 
+        //update!
+        ArrayList<Long> missing = new ArrayList<Long>();
+        //get index for each missing global change
+        for(long i=0;i<transientGlobalChangeCount;i++){
+            if(!GroupThinkClient.gChanges.containsKey(i)){
+                missing.add(i);
+            }
+        }
+        //for each missing change, send out a request to everyone for that change
+        for(long index : missing){
+            try {
+                GroupThinkClient.UDPMultiCaster.sendPacket(new GCP(-1, (short)GroupThinkClient.myID.get(), index));
+            } catch (IOException ex) {
+                Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        //vote!
         try {
             GroupThinkClient.UDPMultiCaster.sendPacket(new CVP((short) -1, (short) GroupThinkClient.myID.get(), GroupThinkClient.doVote()));
         } catch (IOException ex) {
@@ -382,6 +410,7 @@ public class PacketWorker implements Runnable {
     }
 
     public void handleCCP(CCP ccp){
+        GroupThinkClient.saveFile();
 
     }
 }

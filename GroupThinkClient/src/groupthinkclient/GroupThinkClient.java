@@ -36,7 +36,7 @@ import org.fife.ui.rtextarea.RTextScrollPane;
 public class GroupThinkClient extends JFrame {
     
     //General Constants
-    private final String FILE_NAME = "file.gt";
+    private static final String FILE_NAME = "file.gt";
     
     // Networking Constants
     private static final int PORT = 2606;
@@ -64,7 +64,11 @@ public class GroupThinkClient extends JFrame {
     // GUI Variables
     public static AtomicReference<String> username;
     private static JPanel chatRoomPanel, chatLog;
-    private JPanel chatRoom, inputPanel,topPanel, topContainerPanel, topButtonPanel;
+    private JPanel chatRoom;
+    private JPanel inputPanel;
+    private static JPanel topPanel;
+    private JPanel topContainerPanel;
+    private JPanel topButtonPanel;
     private JButton sendButton, commitButton;
     private JToggleButton observerToggle;
     private static JTextField messageField;
@@ -88,6 +92,7 @@ public class GroupThinkClient extends JFrame {
     public static AtomicLong highestSequentialChange = new AtomicLong(-1); // global change counter
     public static int currentLeader;
     public static TCP token;
+    public static AtomicInteger voteCount;
 
     public static void main(String[] args) {
         // Multicaster to send packets:
@@ -364,27 +369,57 @@ public class GroupThinkClient extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 //First, do all the hard commit-y stuff...
-
-
-                //Lastly, update the file data in the GUI...
+                // - send out CRP
                 try {
-                    File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
-                    if(!gtFile.exists()){
-                        gtFile.createNewFile();
-                    }
-                    BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
-
-                    GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
-
-                    topPanel.remove(((BorderLayout)topPanel.getLayout()).getLayoutComponent(BorderLayout.WEST));
-                    topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
-                    topPanel.updateUI();
-
+                    UDPMultiCaster.sendPacket(new CRP((short)myID.get()));
                 } catch (IOException e1) {
                     e1.printStackTrace();
                 }
+
+
+//                //Lastly, update the file data in the GUI...
+//                try {
+//                    File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+//                    if(!gtFile.exists()){
+//                        gtFile.createNewFile();
+//                    }
+//                    BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
+//
+//                    GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
+//
+//                    topPanel.remove(((BorderLayout)topPanel.getLayout()).getLayoutComponent(BorderLayout.WEST));
+//                    topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
+//                    topPanel.updateUI();
+//
+//                } catch (IOException e1) {
+//                    e1.printStackTrace();
+//                }
             }
         };
+    }
+
+    public static boolean saveFile(){
+        boolean saved = false;
+        //First, persist the file...
+
+        //Lastly, update the file data in the GUI...
+        try {
+            File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+            if(!gtFile.exists()){
+                gtFile.createNewFile();
+            }
+            BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
+
+            GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
+
+            topPanel.remove(((BorderLayout)topPanel.getLayout()).getLayoutComponent(BorderLayout.WEST));
+            topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
+            topPanel.updateUI();
+
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+        return saved;
     }
 
     private ActionListener getSendButtonActionListener(){
