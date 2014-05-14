@@ -135,7 +135,6 @@ public class PacketWorker implements Runnable {
     }
 
     private void handleCVP(CVP cvp) {
-//        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         //increment the vote count if positive vote...
         if (cvp.getVote()) {
             GroupThinkClient.voteCount.incrementAndGet();
