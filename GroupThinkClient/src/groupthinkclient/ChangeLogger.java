@@ -38,28 +38,19 @@ public class ChangeLogger extends DocumentFilter {
     }
     
     public void doChange(GlobalChange gc){
-        
-        
-        
         if(gc.isWrite()){
             try{
-                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(null);
+                active=false;
                 editor.getDocument().insertString(gc.getPosition(), gc.getChar()+"", null);
-                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(this);
+                active=true;
             }catch(BadLocationException ex){}
-            /*try {
-                System.out.println(myBypass);
-                System.out.println(myAttributes);
-                super.insertString(myBypass, gc.getPosition(), gc.getChar()+"", myAttributes);
-            } catch (BadLocationException ex) {
-                Logger.getLogger(ChangeLogger.class.getName()).log(Level.SEVERE, null, ex);
-            }*/
+
         }
         else{
             try{
-                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(null);
-                editor.getDocument().remove(gc.getPosition()+1, gc.getPosition());
-                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(this);
+                active=false;
+                editor.getDocument().remove(gc.getPosition(), 1);
+                active=true;
             }catch(BadLocationException ex){}
         }
     }

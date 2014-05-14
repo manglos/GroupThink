@@ -446,7 +446,7 @@ public class GroupThinkClient extends JFrame {
                 Scanner s = new Scanner(gtFile);
                 String file="";
                 while(s.hasNext()){
-                    file += s.nextLine();
+                    file += s.nextLine()+"\n";
                 }
                 editor.getDocument().insertString(0, file, null);
                 return true;
