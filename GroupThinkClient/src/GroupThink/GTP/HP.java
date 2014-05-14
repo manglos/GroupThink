@@ -7,13 +7,15 @@ public class HP extends GTPPacket {
 
     short userID;
     boolean isLeader;
+    Long logCount;
 
-    public HP(short user, boolean l) {
+    public HP(short user, boolean l, Long lc) {
         super(13, -1);
         userID = user;
         isLeader = l;
+        logCount = lc;
         
-        byte[] b = new byte[7];
+        byte[] b = new byte[15];
 
         short num = (short) super.opCode;
 
@@ -40,11 +42,24 @@ public class HP extends GTPPacket {
         b[4] = n[0];
         b[5] = n[1];
         
+        dbuf = ByteBuffer.allocate(8);
+        dbuf.putLong(logCount);
+        n = dbuf.array();
+        
+        b[6] = n[0];
+        b[7] = n[1];
+        b[8] = n[2];
+        b[9] = n[3];
+        b[10] = n[4];
+        b[11] = n[5];
+        b[12] = n[6];
+        b[13] = n[7];
+        
         if(isLeader){
-            b[6]=1;
+            b[14]=1;
         }
         else{
-            b[6]=0;
+            b[14]=0;
         }
        
         
@@ -81,7 +96,20 @@ public class HP extends GTPPacket {
         bb = ByteBuffer.wrap(ui);
         userID = bb.getShort();
         
-        if(b[6]==1){
+        byte[] lc = new byte[8];
+        lc[0] = b[6];
+        lc[1] = b[7];
+        lc[2] = b[8];
+        lc[3] = b[9];
+        lc[4] = b[10];
+        lc[5] = b[11];
+        lc[6] = b[12];
+        lc[7] = b[13];
+        
+        bb = ByteBuffer.wrap(lc);
+        logCount = bb.getLong();
+        
+        if(b[14]==1){
             isLeader=true;
         }
         else{
@@ -96,12 +124,20 @@ public class HP extends GTPPacket {
         return userID;
     }
     
+    public Long getLogCount(){
+        return logCount;
+    }
+    
     public void setBytes() {
        super.bytes = this.bytes;
     }
 
     public byte[] getBytes() {
         return super.bytes;
+    }
+    
+    public boolean isLeader(){
+        return isLeader;
     }
     
     public String toString(){

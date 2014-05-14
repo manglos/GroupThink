@@ -3,16 +3,14 @@ package GroupThink.GTP;
 import java.nio.ByteBuffer;
 
 /**
- * Created by wilhelmi on 5/6/14.
+ * Created by wilhelmi on 5/14/14.
  */
-public class LOP extends GTPPacket {
+public class CRP extends GTPPacket {
 
     short userID;
-    boolean isLeader;
 
-    public LOP(short user, boolean l) {
-        super(14, -1);
-        isLeader = l;
+    public CRP( short user) {
+        super(18, -1);
         userID = user;
 
         byte[] b = new byte[7];
@@ -42,24 +40,16 @@ public class LOP extends GTPPacket {
         b[4] = n[0];
         b[5] = n[1];
 
-        if(isLeader){
-            b[6]=1;
-        }
-        else{
-            b[6]=0;
-        }
-
-
         this.bytes = b;
 
         setBytes();
     }
 
-    public LOP(byte[] b) throws WrongPacketTypeException{
+    public CRP(byte[] b) throws WrongPacketTypeException{
         super(b);
 
-        if(super.getOP()!=14){
-            throw new WrongPacketTypeException("Not a valid LOP Packet");
+        if(super.getOP()!=18){
+            throw new WrongPacketTypeException("Not a valid CVP Packet");
         }
 
         byte[] op = new byte[2];
@@ -83,20 +73,10 @@ public class LOP extends GTPPacket {
         bb = ByteBuffer.wrap(ui);
         userID = bb.getShort();
 
-        if(b[6]==1){
-            isLeader=true;
-        }
-        else{
-            isLeader=false;
-        }
-
         this.bytes=b;
         setBytes();
     }
 
-    public boolean isLeader(){
-        return isLeader;
-    }
     public short getUserID() {
         return userID;
     }
@@ -107,10 +87,6 @@ public class LOP extends GTPPacket {
 
     public byte[] getBytes() {
         return super.bytes;
-    }
-
-    public String toString(){
-        return "LOP: ID " + getUserID() + " isLeader? "+ isLeader+ " " + super.toString();
     }
 
 }

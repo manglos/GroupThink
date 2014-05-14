@@ -1,53 +1,49 @@
-/*
- * This class encapsulates information about a change that has been added
- * to the global logs of all users.
+/*                                                                                                                                                             
+ * This class encapsulates information about a change that has been added                                                                                      
+ * to the global logs of all users.                                                                                                                            
  */
 
 package groupthinkclient;
 
-/**
- *
- * @author angie
+/**                                                                                                                                                            
+ *                                                                                                                                                             
+ * @author angie                                                                                                                                               
  */
 public class GlobalChange {
-    private final long id;       // unique sequential id for the log
-    private int caretX;          // x-position of caret
-    private int caretY;          // y-position of caret
-    private final char payload;  // the character being added or deleted
-    private final boolean write; // write or delete?
-    
-    public GlobalChange(long id, int x, int y, char c, boolean write) {
+    private final long id;       // unique sequential id for the log                                                                                           
+    private int position;          // position in document                                                                                                     
+    private final char payload;  // the character being added or deleted                                                                                       
+    private final boolean write; // write or delete?                                                                                                           
+
+    public GlobalChange(long id, int pos, char c, boolean write) {
         this.id = id;
-        this.caretX = x;
-        this.caretY = y;
+        this.position = pos;
         this.write = write;
         this.payload = c;
     }
     
-    // offsets for a local delete/insert if this change occurs after:
-    public void offsetIfApplicable(int localX, int localY, int direction) {
-        if (effectedByLocalChange(localX, localY)) {
-            offsetX(direction); // +1 for write -1 for delete
-        }
+    public GlobalChange(long id, LocalChange lc){
+        this.id = id;
+        this.position = lc.getPosition();
+        this.payload = lc.getChar();
+        this.write = lc.isWrite();                
     }
-    
-    // See if this character is effected by a local change:
-    public boolean effectedByLocalChange(int changeX, int changeY) {
-        return ((this.caretY > changeY) || ((this.caretY == changeY) && (this.caretX >= changeX)));
+
+    public int getPosition(){
+        return position;
     }
-    
-    // offset the caret x position if local changes effect it
-    public void offsetX(int xOffset) {
-        caretX += xOffset;
+
+    public char getChar(){
+        return payload;
     }
-    
-    // offset the caret y position if local changes effect it
-    public void offsetY(int yOffset) {
-        caretY += yOffset;
+
+    public boolean isWrite(){
+        return write;
     }
-    
-    // get this change's id:
+
+    // get this change's id:                                                                                                                                   
     public long getChangeID() {
         return id;
     }
 }
+

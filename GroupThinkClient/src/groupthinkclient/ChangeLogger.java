@@ -6,12 +6,15 @@
 package groupthinkclient;
 
 import GroupThink.GTP.*;
+import static groupthinkclient.GroupThinkClient.editor;
+import static groupthinkclient.GroupThinkClient.logger;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DocumentFilter;
+import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 
 /**
  *
@@ -21,6 +24,8 @@ public class ChangeLogger extends DocumentFilter {
     // Hold onto the client so that you have access to all datastructures:
     private final GroupThinkClient client;
     private boolean active;
+    DocumentFilter.FilterBypass myBypass;
+    AttributeSet myAttributes;
 
     public ChangeLogger(GroupThinkClient client) {
         this.client = client;
@@ -32,35 +37,67 @@ public class ChangeLogger extends DocumentFilter {
         this.active = active;
     }
     
+    public void doChange(GlobalChange gc){
+        
+        
+        
+        if(gc.isWrite()){
+            try{
+                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(null);
+                editor.getDocument().insertString(gc.getPosition(), gc.getChar()+"", null);
+                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(this);
+            }catch(BadLocationException ex){}
+            /*try {
+                System.out.println(myBypass);
+                System.out.println(myAttributes);
+                super.insertString(myBypass, gc.getPosition(), gc.getChar()+"", myAttributes);
+            } catch (BadLocationException ex) {
+                Logger.getLogger(ChangeLogger.class.getName()).log(Level.SEVERE, null, ex);
+            }*/
+        }
+        else{
+            try{
+                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(null);
+                editor.getDocument().remove(gc.getPosition()+1, gc.getPosition());
+                ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(this);
+            }catch(BadLocationException ex){}
+        }
+    }
+
     //-------------------------FILTER MEHTODS---------------------------------//
-    
     @Override
     // "Invoked prior to insertion of text into the specified Document."
     public void insertString(DocumentFilter.FilterBypass fb, int offset, String text,
             AttributeSet attr) throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            addGlobally((short) offset, text);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            addLocally(offset, text);
+        myBypass=fb;
+        myAttributes=attr;
+        // If the user wrote it, add to the local queue
+        if (active) {
+            for (int i = 0; i < text.length(); i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset, text.charAt(i)));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
+            }
         }
         // display the change in the GUI 
         super.insertString(fb, offset, text, attr);
     }
-    
+
     @Override
     // "Invoked prior to removal of the specified region in the specified Document."
     public void replace(DocumentFilter.FilterBypass fb, int offset, int length, String text,
             AttributeSet attrs) throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            addGlobally(offset, text);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            addLocally(offset, text);
+        myBypass=fb;
+        myAttributes=attrs;
+        // If the user wrote it, add to the local queue
+        if (active) {
+            for (int i = 0; i < text.length(); i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset, text.charAt(i)));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
+            }
         }
         // display the change in the GUI 
         super.replace(fb, offset, length, text, attrs);
@@ -70,21 +107,24 @@ public class ChangeLogger extends DocumentFilter {
     // "Invoked prior to replacing a region of text in the specified Document."
     public void remove(DocumentFilter.FilterBypass fb, int offset, int length)
             throws BadLocationException {
-        // if you are the leader, put the change in the global log and multicast
-        if (this.client.leader.get()) {
-            removeGlobally(offset, length);
-        } 
-        // otherwise, buffer the change in the local log and request leadership
-        else {
-            removeLocally(offset, length);
+        myBypass=fb;
+        // If the user wrote it, add to the local queue
+        if (active) {
+            for (int i = 0; i < length; i++) {
+                GroupThinkClient.lChanges.add(new LocalChange(offset));
+                synchronized (GroupThinkClient.lChanges) {
+                    GroupThinkClient.lChanges.notifyAll();
+                }
+            }
         }
         // display the change in the GUI 
         super.remove(fb, offset, length);
     }
 
-    //-------------------------LOGGER MEHTODS---------------------------------//
+    //------------OLD METHODS -- DO NOT USE (JUST FOR REFERENCE)--------------//
 
-    private void addGlobally(int offset, String text) {
+    
+    public void addGlobally(int offset, String text) {
         WCP newPacket;
         short id = (short) client.myID.get();
         for (int i=0; i<text.length(); i++) {
@@ -99,10 +139,6 @@ public class ChangeLogger extends DocumentFilter {
             }
             // to do : add to global queue
         }
-    }
-
-    private void addLocally(int offset, String text) {
-        // to do
     }
     
     private void removeGlobally(int offset, int length) {
@@ -119,10 +155,6 @@ public class ChangeLogger extends DocumentFilter {
             }
             // to do : add to global queue
         }
-    }
-
-    private void removeLocally(int offset, int length) {
-        // to do
     }
     
     //--------------------------DEBUG MEHTODS---------------------------------//

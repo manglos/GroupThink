@@ -16,9 +16,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
@@ -26,15 +30,16 @@ import static javax.swing.JOptionPane.*;
 
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.Border;
+import javax.swing.text.BadLocationException;
 import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 public class GroupThinkClient extends JFrame {
-
+    
     //General Constants
-    private final String FILE_NAME = "file.gt";
+    private static final String FILE_NAME = "file.gt";
     
     // Networking Constants
     private static final int PORT = 2606;
@@ -54,41 +59,47 @@ public class GroupThinkClient extends JFrame {
     static ConcurrentHashMap<Integer, User> idToUser; // keep track of the current group
     private int leaderID; // keep track of the current leader
     public AtomicInteger nextUserID;
+    public static AtomicBoolean gotUsername = new AtomicBoolean(false); 
 
     // Gui Constants
     private final boolean SPLIT_PANE_DYN_UPDATE_ON_RESIZE = true;
     private final int GUI_WIDTH = 500, GUI_HEIGHT = 300;
-
+    
     // GUI Variables
     public static AtomicReference<String> username;
     private static JPanel chatRoomPanel, chatLog;
-    private JPanel chatRoom, inputPanel,topPanel, topContainerPanel, topButtonPanel;
+    private JPanel chatRoom, inputPanel, topContainerPanel, topButtonPanel;
+    private static JPanel topPanel;
     private JButton sendButton, commitButton;
     private JToggleButton observerToggle;
     private static JTextField messageField;
     private static JScrollPane chatLogScroller, nameScroller;
     private JSplitPane splitPane;
     private RTextScrollPane rtsp;
-    static RSyntaxTextArea editor;
-    private static CheckBoxList chatNameList;
+    public static RSyntaxTextArea editor;
+    public static CheckBoxList chatNameList;
+    private Border defaultPanelBorder;
     private static SimpleDateFormat sdf;
     private static ArrayList<JLabel> messages;
-
+    
     //General Variables
     public static AtomicBoolean observerMode = new AtomicBoolean(false);
     
     // Change / Synchronization Attributes:
-    public static ChangeLogger logger;           // adds changes to logs
-    public HashMap<Long, GlobalChange> gChanges; // list of global changes
-    public HashMap<Long, LocalChange> lChange;   // list of local changes
-    public static AtomicBoolean leader;          // do you have the token?
-    public long highestSequentialChange = 0;     // global change counter
+    public static ChangeLogger logger; // adds changes to logs
+    public static ConcurrentHashMap<Long, GlobalChange> gChanges; // list of global changes
+    public static final ConcurrentLinkedQueue<LocalChange> lChanges = new ConcurrentLinkedQueue(); // list of local changes
+    public static AtomicBoolean leader; // do you have the token?
+    public static AtomicLong highestSequentialChange = new AtomicLong(-1); // global change counter
+    public static int currentLeader;
+    public static TCP token;
+    public static AtomicInteger voteCount=new AtomicInteger(0);
 
     public static void main(String[] args) {
         // Multicaster to send packets:
         UDPMultiCaster.initialize(PORT, HOSTNAME);
         GroupThinkClient.UDPMultiCaster.initialize(PORT, HOSTNAME);
-
+        
         // Start GUI:
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -122,8 +133,8 @@ public class GroupThinkClient extends JFrame {
          this.addWindowListener(new WindowListener() {
             @Override public void windowOpened(WindowEvent e) {}
             @Override public void windowClosing(WindowEvent e) {
-                boolean isLeader = false;
-                LOP lop = new LOP((short)myID.get(), isLeader);
+                //boolean isLeader = false;
+                LOP lop = new LOP((short)myID.get(), GroupThinkClient.leader.get());
                 try {
                     UDPMultiCaster.sendPacket(lop);
                 } catch (IOException e1) {
@@ -143,20 +154,30 @@ public class GroupThinkClient extends JFrame {
         leader = new AtomicBoolean(false);
         myID = new AtomicInteger(-1);
         nextUserID = new AtomicInteger(0);
+        currentLeader=-1;
         username = new AtomicReference<String>(null);
         messages = new ArrayList<JLabel>();
+        token = null;
         String un="";
+        gChanges = new ConcurrentHashMap<Long, GlobalChange>();
         
         // Load GUI Tools:
         sdf = new SimpleDateFormat("HH:mm:ss");
+        defaultPanelBorder = BorderFactory.createLineBorder(Color.black);
         chatRoom = new JPanel(new BorderLayout());
-
+        
         Thread pt = new Thread(new PacketWorker());
         pt.start();
 
         Thread lt = new Thread(new ListenerWorker(PORT, HOSTNAME));
         lt.start();
         chatNameList = new CheckBoxList(idToUser.values().toArray());
+        
+        Thread ht = new Thread(new HeartbeatWorker(ACTIVE_TIMEOUT));
+        ht.start();
+        
+        Thread lct = new Thread(new LocalChangeWorker());
+        lct.start();
         
         un=showInputDialog(this, "Please enter your requested username:",
                 "Login to the GroupThink Server", JOptionPane.QUESTION_MESSAGE);
@@ -173,8 +194,10 @@ public class GroupThinkClient extends JFrame {
         
         chatNameList.setUsername(username.get());
         System.out.println("I have a username!!! " + username.get());
-
+        
         idToUser.put(myID.get(), new User(myID.get(), username.get()));
+        
+        System.out.println("user id is " + myID.get());
         
         nameScroller = new JScrollPane(chatNameList);
         chatLog = new JPanel(new GridLayout(0,1,2,2));
@@ -233,7 +256,7 @@ public class GroupThinkClient extends JFrame {
         commitButton.addActionListener(getCommitButtonActionListener());
         observerToggle = new JToggleButton("Observer Mode");
         observerToggle.addActionListener(getObserverToggleActionListener());
-
+        
         //TODO populate file details from file.gt
         try {
             System.out.println(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
@@ -249,26 +272,37 @@ public class GroupThinkClient extends JFrame {
 
         } catch (IOException e) {
             e.printStackTrace();
-        }
+            }
 
         topButtonPanel.add(observerToggle);
         topButtonPanel.add(commitButton);
         topPanel.add(topButtonPanel, BorderLayout.EAST);
-
+        
         topContainerPanel = new JPanel(new BorderLayout());
         topContainerPanel.add(topPanel, BorderLayout.NORTH);
-
+        
         editor = new RSyntaxTextArea(20, 60);
         editor.setCloseCurlyBraces(false);
-
+        
         editor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         editor.setCodeFoldingEnabled(false);
         editor.setAutoIndentEnabled(false);
+        
+        loadFile();//yolooooooo
         
         // <ANG> register the change-logging document filter:
         this.logger = new ChangeLogger(this);
         ((RSyntaxDocument) editor.getDocument()).setDocumentFilter(logger);
         // <\ANG>
+        
+        
+        try {
+            UDPMultiCaster.sendPacket(new TRP((short)myID.get(), 0L));
+        } catch (IOException ex) {
+            Logger.getLogger(GroupThinkClient.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        
         
         rtsp = new RTextScrollPane(editor);
         topContainerPanel.add(rtsp, BorderLayout.CENTER);
@@ -281,13 +315,45 @@ public class GroupThinkClient extends JFrame {
         splitPane.setBottomComponent(chatRoomPanel);
 
         setContentPane(splitPane);
-        
+
         setTitle("(" + username.get() + ") GroupThink Client");
         setSize(GUI_WIDTH, GUI_HEIGHT);
         setLocationRelativeTo(null); //<-- centers the gui on screen
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         pack();
         
+    }
+    
+    public static void updateHighestSequentialChange(){
+        ArrayList<Long> keys = new ArrayList<Long>(gChanges.keySet());
+        
+        Collections.sort(keys);
+        
+        for(long l : keys)
+            //System.out.println(l);
+        
+        for(long i=0;i<keys.size();i++){
+            //System.out.println("CurrentKey is " + keys.get((int)i));
+            
+            if(keys.get(0)!=null){
+                if(highestSequentialChange.compareAndSet(-1, 0))
+                    return;
+            }
+            
+            if(i>0 && keys.get((int)i)!=(keys.get((int)i-1) + 1)){
+                //System.out.println("Setting hgc to " + keys.get((int)i-1));
+                highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i-1));
+                return;
+            }
+            else
+               highestSequentialChange.compareAndSet(highestSequentialChange.get(), keys.get((int)i));
+
+        }
+               
+    }
+
+    public static void setEnableEditing(boolean b){
+        editor.setEnabled(b);
     }
 
     private ActionListener getObserverToggleActionListener(){
@@ -300,11 +366,11 @@ public class GroupThinkClient extends JFrame {
 
                 if(selected){
                     observerToggle.setForeground(Color.GREEN.darker());
-                    editor.setEnabled(false);
                 } else{
                     observerToggle.setForeground(Color.BLACK);
-                    editor.setEnabled(true);
                 }
+
+                setEnableEditing(!selected);
 
                 System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
             }
@@ -316,9 +382,79 @@ public class GroupThinkClient extends JFrame {
         return new ActionListener(){
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                //First, do all the hard commit-y stuff...
+                // - send out CRP
+                try {
+                    UDPMultiCaster.sendPacket(new CRP((short)myID.get()));
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
             }
         };
+    }
+
+    public static boolean saveFile(){
+        boolean saved = false;
+        //First, persist the file...
+        File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+        String file="";
+        try{
+             file = editor.getDocument().getText(0, editor.getDocument().getLength()-1);
+        }catch(Exception e){
+            e.printStackTrace();
+            //YOLO!!
+        }
+        
+        
+        try{
+            PrintWriter pw = new PrintWriter(gtFile);
+            pw.write(file);
+            pw.flush();
+            pw.close();
+        }catch(Exception e){
+            e.printStackTrace();
+            //yolo!!!!!
+        }
+        
+        
+        //Lastly, update the file data in the GUI...
+        try {
+            
+            if(!gtFile.exists()){
+                gtFile.createNewFile();
+            }
+            BasicFileAttributes attr = Files.readAttributes(gtFile.toPath(), BasicFileAttributes.class);
+
+            GTFile gtf = new GTFile(FILE_NAME, attr.size(), attr.lastModifiedTime().toMillis());
+
+            topPanel.remove(((BorderLayout)topPanel.getLayout()).getLayoutComponent(BorderLayout.WEST));
+            topPanel.add(gtf.getFileIcon(), BorderLayout.WEST);
+            topPanel.updateUI();
+
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+        
+        
+        return saved;
+    }
+    
+    public static boolean loadFile(){
+        File gtFile = new File(System.getProperty("user.home") + System.getProperty("file.separator") +  FILE_NAME);
+        if(gtFile.exists()){
+            try{
+                Scanner s = new Scanner(gtFile);
+                String file="";
+                while(s.hasNext()){
+                    file += s.nextLine();
+                }
+                editor.getDocument().insertString(0, file, null);
+                return true;
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+        return false;
     }
 
     private ActionListener getSendButtonActionListener(){
@@ -380,14 +516,17 @@ public class GroupThinkClient extends JFrame {
         String timeStamp = sdf.format(new Date());
         String message = "";
         
+        //System.out.println(idToUser.get(p.getUserID()));
+        
         String name = p.getUserID() == myID.get()? username.get() : idToUser.get(p.getUserID()).getUsername();
+        //System.out.println("name is " + name);
         Color c = chatNameList.getUserColor(name);
         JLabel chatMessage = new JLabel();
         if(!pm){ //if this is NOT a private message...
-            message = String.format("%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
+            message = String.format("\n%s - %s: %s", timeStamp, (name != null? name : "Anon"), p.getMessage());
         } else{
             chatMessage.setFont(chatMessage.getFont().deriveFont(Font.ITALIC));
-            message = String.format("%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
+            message = String.format("\n%s - %s -> %s: %s", timeStamp, (name != null? name : "Anon"), idToUser.get(p.getIntendedRecipient()).getUsername(), p.getMessage());
         }
 
         chatMessage.setText(message);
@@ -409,7 +548,7 @@ public class GroupThinkClient extends JFrame {
             idToUser.put(id, new User(id, name));
             System.out.println("name is " + name);
             chatNameList.addName(name);
-
+            
             if (chatLog!=null) {
                 JLabel logInMessage = new JLabel();
                 logInMessage.setFont(logInMessage.getFont().deriveFont(Font.ITALIC));
@@ -421,12 +560,13 @@ public class GroupThinkClient extends JFrame {
                 chatLogScroller.updateUI();
                 chatLogScroller.getViewport().setViewPosition(new Point(0, chatLog.getHeight()));
                 chatRoomPanel.updateUI();
-            }
         }
+    }
     }
     
     public static void removeUser(int id){
-        System.out.println("Received a request to remove user: " + id + ", " + idToUser.get(id).getUsername());
+        //System.out.println("Received a request to remove user: " + id);
+        //System.out.println("Their username is " + idToUser.get(id).getUsername());
         if(id != myID.get()){
             if(idToUser.get(id)!=null){
                 JLabel logOutMessage = new JLabel();
@@ -442,10 +582,24 @@ public class GroupThinkClient extends JFrame {
 
                 chatLogScroller.updateUI();
                 chatLogScroller.getViewport().setViewPosition(new Point(0, chatLog.getHeight()));
+                //idToUser.remove(id);
             }
         }
     }
     
+    public static boolean doVote(){
+        boolean myVote = false;
+
+        Object[] voting = {"Aye!", "Nay!"};
+        int n = JOptionPane.showOptionDialog(null, "Please enter your vote to commit the document.",
+                "VOTE!", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                null, voting, voting[0]);
+        System.out.println("MY VOTE: " + n);
+        myVote = (n == 0);
+
+        return myVote;
+    }
+
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
         username.compareAndSet(username.get(), un);
@@ -453,7 +607,9 @@ public class GroupThinkClient extends JFrame {
         System.out.println("Requesting for " + username.get());
         //send out request
         try{
-            UDPMultiCaster.sendPacket(new URP(un));
+            URP urp = new URP(un);
+            //System.out.println("Sending request " + urp);
+            UDPMultiCaster.sendPacket(urp);
         }catch(IOException ex){
             ex.printStackTrace();
         }
@@ -474,10 +630,15 @@ public class GroupThinkClient extends JFrame {
             myID.compareAndSet(-1, 0);
             User me = new User(0, username.get());
             me.setIsLeader(true);
+            currentLeader=0;
             idToUser.put(0, me);
             leader.getAndSet(true);
+            token = new TCP(0, 0);
+            System.out.println(token);
+            UDPMultiCaster.printBytes(token.getBytes());
         }
         
+        gotUsername.compareAndSet(false, true);
         return true;
     }
     

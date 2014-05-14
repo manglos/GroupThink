@@ -3,19 +3,19 @@ package GroupThink.GTP;
 import java.nio.ByteBuffer;
 
 /**
- * Created by wilhelmi on 5/6/14.
+ * Created by wilhelmi on 5/14/14.
  */
-public class LOP extends GTPPacket {
+public class CCP extends GTPPacket {
 
     short userID;
-    boolean isLeader;
-
-    public LOP(short user, boolean l) {
-        super(14, -1);
-        isLeader = l;
+    boolean commitHappened;
+    
+    public CCP(short user, boolean c) {
+        super(19, -1);
         userID = user;
+        commitHappened=c;
 
-        byte[] b = new byte[7];
+        byte[] b = new byte[8];
 
         short num = (short) super.opCode;
 
@@ -41,25 +41,22 @@ public class LOP extends GTPPacket {
 
         b[4] = n[0];
         b[5] = n[1];
-
-        if(isLeader){
+        
+        if(commitHappened)
             b[6]=1;
-        }
-        else{
+        else
             b[6]=0;
-        }
-
 
         this.bytes = b;
 
         setBytes();
     }
 
-    public LOP(byte[] b) throws WrongPacketTypeException{
+    public CCP(byte[] b) throws WrongPacketTypeException{
         super(b);
 
-        if(super.getOP()!=14){
-            throw new WrongPacketTypeException("Not a valid LOP Packet");
+        if(super.getOP()!=19){
+            throw new WrongPacketTypeException("Not a valid CVP Packet");
         }
 
         byte[] op = new byte[2];
@@ -82,21 +79,16 @@ public class LOP extends GTPPacket {
 
         bb = ByteBuffer.wrap(ui);
         userID = bb.getShort();
-
-        if(b[6]==1){
-            isLeader=true;
-        }
-        else{
-            isLeader=false;
-        }
+        
+        if(b[6]==1)
+            commitHappened=true;
+        else
+            commitHappened=false;
 
         this.bytes=b;
         setBytes();
     }
 
-    public boolean isLeader(){
-        return isLeader;
-    }
     public short getUserID() {
         return userID;
     }
@@ -104,13 +96,13 @@ public class LOP extends GTPPacket {
     public void setBytes() {
         super.bytes = this.bytes;
     }
+    
+    public boolean commitHappened(){
+        return commitHappened;
+    }
 
     public byte[] getBytes() {
         return super.bytes;
-    }
-
-    public String toString(){
-        return "LOP: ID " + getUserID() + " isLeader? "+ isLeader+ " " + super.toString();
     }
 
 }

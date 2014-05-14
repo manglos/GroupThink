@@ -30,7 +30,7 @@ public class URP extends GTPPacket {
         short iu = (short) super.intendedRecipient;
 
         dbuf = ByteBuffer.allocate(2);
-        dbuf.putShort((short)0);
+        dbuf.putShort((short)super.intendedRecipient);
         byte[] n = dbuf.array();
 
         b[2] = n[0];
