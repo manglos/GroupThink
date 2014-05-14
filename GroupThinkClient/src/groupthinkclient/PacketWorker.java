@@ -136,9 +136,10 @@ public class PacketWorker implements Runnable {
 
     private void handleCVP(CVP cvp) {
 //        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-        //only listen for CVPs if I'm the leader
-
-        GroupThinkClient.voteCount.incrementAndGet();
+        //increment the vote count if positive vote...
+        if (cvp.getVote()) {
+            GroupThinkClient.voteCount.incrementAndGet();
+        }
     }
 
     private void handleURP(URP urp) {
