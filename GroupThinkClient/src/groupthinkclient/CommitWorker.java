@@ -6,6 +6,9 @@ package groupthinkclient;
 
 import GroupThink.GTP.CCP;
 import GroupThink.GTP.HP;
+
+import javax.swing.*;
+
 import static groupthinkclient.GroupThinkClient.setEnableEditing;
 import java.io.IOException;
 import java.util.Iterator;
@@ -57,6 +60,16 @@ public class CommitWorker implements Runnable {
             try {
                 //commit didn't happen
                 GroupThinkClient.UDPMultiCaster.sendPacket(new CCP((short)GroupThinkClient.myID.get(), false));
+
+                //show a popup saying that the vote failed...
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        JOptionPane.showMessageDialog(null, "Vote failed to pass. Not committing.");
+
+                    }
+                });
+
             } catch (IOException ex) {
                 Logger.getLogger(CommitWorker.class.getName()).log(Level.SEVERE, null, ex);
             }

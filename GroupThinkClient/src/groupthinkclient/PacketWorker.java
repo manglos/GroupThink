@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.*;
 import javax.swing.text.BadLocationException;
 
 public class PacketWorker implements Runnable {
@@ -435,18 +436,31 @@ public class PacketWorker implements Runnable {
         }
 
         //vote!
-        try {
-            GroupThinkClient.UDPMultiCaster.sendPacket(new CVP((short) -1, (short) GroupThinkClient.myID.get(), GroupThinkClient.doVote()));
-        } catch (IOException ex) {
-            Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
-        }
+
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                GroupThinkClient.UDPMultiCaster.sendPacket(new CVP((short) -1, (short) GroupThinkClient.myID.get(), GroupThinkClient.doVote()));
+                } catch (IOException ex) {
+                    Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        });
+
 
     }
 
     public void handleCCP(CCP ccp){
-        if(ccp.commitHappened())
-            GroupThinkClient.saveFile();
-        
+        if(ccp.commitHappened()) {
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    GroupThinkClient.saveFile();
+                }
+            });
+        }
+
         GroupThinkClient.setEnableEditing(true);
     }
 }
