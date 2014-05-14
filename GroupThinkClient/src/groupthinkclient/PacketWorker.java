@@ -71,6 +71,12 @@ public class PacketWorker implements Runnable {
                     case 17: // handle TDP (Token Declined)
                         handleTDP((TDP) packet);
                         break;
+                    case 18: // handle CRP (Commit Request Packet)
+                        handleCRP((CRP) packet);
+                        break;
+                    case 19: // handle CCP (Commit Command Packet)
+                        handleCCP((CCP) packet);
+                        break;
                 }
             } 
             // If no packets in queue, block until something is added:
@@ -349,5 +355,33 @@ public class PacketWorker implements Runnable {
         synchronized(GroupThinkClient.lChanges){
             GroupThinkClient.lChanges.notifyAll();
         }
+    }
+
+    public void handleCRP(CRP crp){
+        /*upon receipt of a commit request, do the following:
+        * - disable editing in the document
+        * - make sure change log is up to date with leader
+        * - show the vote dialog
+        */
+
+        GroupThinkClient.setEnableEditing(false);
+
+        //send out a TRP in order to make sure I'm up to date
+        try {
+            GroupThinkClient.UDPMultiCaster.sendPacket(new TRP((short)GroupThinkClient.myID.get(), GroupThinkClient.highestSequentialChange.get()));
+        } catch (IOException ex) {
+            Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        try {
+            GroupThinkClient.UDPMultiCaster.sendPacket(new CVP((short) -1, (short) GroupThinkClient.myID.get(), GroupThinkClient.doVote()));
+        } catch (IOException ex) {
+            Logger.getLogger(PacketWorker.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
+
+    public void handleCCP(CCP ccp){
+
     }
 }

@@ -12,7 +12,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Vector;
 
 public class CheckBoxList extends JList{
@@ -193,11 +192,12 @@ public class CheckBoxList extends JList{
 
     public boolean containsName(String name){
         boolean contains = false;
+        String inactiveName = "("+name+")";
 
         for(Component c : items) {
             if (c instanceof JCheckBox) {
                 JCheckBox b = (JCheckBox) c;
-                if (b.getText().equalsIgnoreCase(name)) {
+                if (b.getText().equalsIgnoreCase(name) || b.getText().equalsIgnoreCase(inactiveName)) {
                     contains = true;
                     break;
                 }

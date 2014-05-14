@@ -75,6 +75,11 @@ public class ListenerWorker implements Runnable {
                             case 17:
                                 GroupThinkClient.packetQueue.add(new TDP(b));
                                 break;
+                            case 18:
+                                GroupThinkClient.packetQueue.add(new CRP(b));
+                                break;
+                            case 19:
+                                GroupThinkClient.packetQueue.add(new CCP(b));
                         }
                         synchronized (GroupThinkClient.packetQueue) {
                             GroupThinkClient.packetQueue.notifyAll();

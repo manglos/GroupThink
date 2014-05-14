@@ -333,6 +333,10 @@ public class GroupThinkClient extends JFrame {
                
     }
 
+    public static void setEnableEditing(boolean b){
+        editor.setEnabled(b);
+    }
+
     private ActionListener getObserverToggleActionListener(){
         return new ActionListener(){
             @Override
@@ -343,11 +347,11 @@ public class GroupThinkClient extends JFrame {
 
                 if(selected){
                     observerToggle.setForeground(Color.GREEN.darker());
-                    editor.setEnabled(false);
                 } else{
                     observerToggle.setForeground(Color.BLACK);
-                    editor.setEnabled(true);
                 }
+
+                setEnableEditing(!selected);
 
                 System.out.println("Observer Mode is: " + (observerMode.get()? "ON!" : "OFF!"));
             }
@@ -510,7 +514,20 @@ public class GroupThinkClient extends JFrame {
             }
         }
     }
-    
+
+    public static boolean doVote(){
+        boolean myVote = false;
+
+        Object[] voting = {"Aye!", "Nay!"};
+        int n = JOptionPane.showOptionDialog(null, "Please enter your vote to commit the document.",
+                "VOTE!", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE,
+                null, voting, voting[0]);
+        System.out.println("MY VOTE: " + n);
+        myVote = (n == 0);
+
+        return myVote;
+    }
+
     //only returns 'true' if gets a valid id from the server (the username is valid and available)
     static boolean requestUsername(String un){
         username.compareAndSet(username.get(), un);
